@@ -6204,11 +6204,14 @@ void MainWindow::guiUpdate()
           if (!ui->cbAutoCQ->isChecked())
         auto_tx_mode (false);
         if(b) {
-          m_ntx=6;
-          ui->txrb6->setChecked(true);
-          m_QSOProgress = CALLING;
-          //  Z
-          if (m_lastCall == m_hisCall) clearDX();
+          // In AutoCall-only mode, do not force Tx6/CQ after sending 73.
+          if (!ui->cbAutoCall->isChecked() || ui->cbAutoCQ->isChecked()) {
+            m_ntx=6;
+            ui->txrb6->setChecked(true);
+            m_QSOProgress = CALLING;
+            //  Z
+            if (m_lastCall == m_hisCall) clearDX();
+          }
         }
       }
     }
