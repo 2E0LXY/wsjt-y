@@ -1366,7 +1366,9 @@ void MainWindow::on_the_minute ()
         }
     }
   // Z
-  if (watchdog () && m_mode!="WSPR" && m_mode!="FST4W" && !(ui->cbAutoCQ->isChecked() && m_QSOProgress == CALLING)) {
+  if (watchdog () && m_mode!="WSPR" && m_mode!="FST4W"
+      && !((ui->cbAutoCQ->isChecked() || ui->cbAutoCall->isChecked())
+           && m_QSOProgress == CALLING)) {
     if (m_idleMinutes < watchdog ()) ++m_idleMinutes;
     update_watchdog_label ();
   } else {
@@ -5611,7 +5613,7 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
                && message_words.at (2).contains (m_baseCall)
                && (ui->cbAutoCQ->isChecked() || ui->cbAutoCall->isChecked())
                && m_QSOProgress == CALLING
-               && !(message_words.filter (QRegularExpression {"^(73)$"}).size())
+               && !(message_words.filter (QRegularExpression {"^(73|RR73|RRR)$"}).size())
                && (m_config.processTailenders() || m_lastCall == hiscall)
                && (!m_transmitting)
                )
