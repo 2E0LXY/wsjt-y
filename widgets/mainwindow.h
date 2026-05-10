@@ -738,7 +738,6 @@ private:
   QString m_prioGrid;
   bool    m_infoMessageShown = false;
   bool    m_autoModeSwitch = false;
-  bool    m_timeToHop = false;
   QScopedPointer<UnfilteredView> m_unfilteredView;
   QScopedPointer<PSKReporterWidget> m_pskReporterView;
   QThread * m_pskReporterThread;

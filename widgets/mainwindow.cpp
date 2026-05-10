@@ -6948,7 +6948,6 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
 
   // Z
   dxLookup(hiscall, hisgrid);
-  if (ui->cb_autoModeSwitch->isChecked()) resetAutoSwitch();
   int nw=w.size();
   if(nw>=4) {
     if(message_words.size()<4) return;
@@ -12876,7 +12875,6 @@ void MainWindow::sfox_tx() {
 
 void MainWindow::on_cbAutoCall_toggled(bool b)
 {
-
     if (b) {
         ui->cbCQonly->setChecked(true);
         ui->cbCQonly->setEnabled(false);
@@ -14033,60 +14031,86 @@ void MainWindow::on_cb_autoModeSwitch_toggled(bool b) {
         resetAutoSwitch();
         ui->cbHoldTxFreq->setChecked(true);
     } else {
-        ui->le_autoCallLeft->setText("");
-        ui->le_autoCQLeft->setText("");
+    ui->le_autoCallLeft->setText("");
+    ui->le_autoCQLeft->setText("");
     }
 }
 
 void MainWindow::toggleBands() {
-    if (!ui->cb_bandHopper->isChecked() || (!ui->cbAutoCall->isChecked() && !ui->cbAutoCQ->isChecked())) return;
+  bool auto_role_selected = ui->cbAutoCall->isChecked() || ui->cbAutoCQ->isChecked();
+  bool valid_switch_state = !(ui->cbAutoCall->isChecked() && ui->cbAutoCQ->isChecked());
+  if (!ui->cb_bandHopper->isChecked() || !auto_role_selected || !valid_switch_state) return;
     if (m_zdebug) log("toggleBands: ENTRY");
 
     QString bhText = ui->pte_bandHopper->toPlainText();
-    QStringList bhList = bhText.split(QRegExp("[\r\n]"),SkipEmptyParts);
+  QStringList bhList = bhText.split(QRegExp("[\r\n]"), SkipEmptyParts);
     int now = QDateTime::currentDateTimeUtc().toString("hh").toInt();
     int targeth = -1;
     QString target= "";
-    for ( const auto& i : bhList  ) {
-       int h = i.left(2).toInt();
-       if (h <= now && h > targeth) {
-           targeth = h;
-           target = i;
-       }
+  for (const auto& i : bhList) {
+     auto line = i.trimmed();
+     auto colon = line.indexOf(":");
+     if (colon < 0) continue;
+     int h = line.left(colon).trimmed().toInt();
+     if (h <= now && h > targeth) {
+       targeth = h;
+       target = line;
+     }
     }
 
     if (targeth == -1) {
-        for ( const auto& i : bhList  ) {
-           int h = i.left(2).toInt();
-           if (h > targeth) {
-               targeth = h;
-               target = i;
-           }
+    for (const auto& i : bhList) {
+       auto line = i.trimmed();
+       auto colon = line.indexOf(":");
+       if (colon < 0) continue;
+       int h = line.left(colon).trimmed().toInt();
+       if (h > targeth) {
+         targeth = h;
+         target = line;
+       }
         }
     }
 
-    QStringList bands = target.remove(0,target.indexOf(":")+1).split(",");
-    QString newBand = "";
+  if (targeth == -1 || target.isEmpty()) return;
 
-   int idx = bands.indexOf(m_currentBand);
-   if (idx >= 0 && idx < bands.size()-1) {
-        newBand = bands.at(idx+1);
-   } else {
-        newBand = bands.at(0);
-   }
+  auto colon = target.indexOf(":");
+  QStringList bands = target.mid(colon + 1).split(",", SkipEmptyParts);
+  for (auto& band : bands) band = band.trimmed();
+  bands.removeAll("");
+  if (bands.isEmpty()) return;
 
-    if (newBand == "" || newBand == m_currentBand) return;
+  QString currentBand = m_currentBand.trimmed();
+  if (currentBand.isEmpty()) currentBand = ui->bandComboBox->currentText().trimmed();
+
+  int idx = bands.indexOf(currentBand);
+  int start = (idx >= 0 ? idx + 1 : 0);
+  QString newBand;
+
+  Mode mode;
+  if (m_mode == "FT8") mode = Mode::FT8;
+  else if ((m_mode=="FT4" or m_mode=="FT2")) mode = Mode::FT4;
+  else return;
+
+  // Pick the next different band in this schedule row that is available
+  // in the filtered frequency list.
+  m_config.frequencies ()->filter (m_config.region (), mode, false);
+  int row = -1;
+  for (int offset = 0; offset < bands.size(); ++offset) {
+    QString candidate = bands.at((start + offset) % bands.size()).trimmed();
+    if (candidate.isEmpty() || candidate == currentBand) continue;
+    int candidate_row = m_config.frequencies ()->best_working_frequency (candidate);
+    if (candidate_row >= 0) {
+      newBand = candidate;
+      row = candidate_row;
+      break;
+    }
+  }
+
+  if (newBand.isEmpty() || row < 0) return;
 
     ui->bandComboBox->setCurrentText (newBand);
     m_wideGraph->setRxBand (newBand);
     m_lastBand = newBand;
-    Mode mode;
-    if (m_mode == "FT8") mode = Mode::FT8;
-    else if ((m_mode=="FT4" or m_mode=="FT2")) mode = Mode::FT4;
-    else return;
-
-    m_config.frequencies ()->filter (m_config.region (), mode, false);
-    auto const& row = m_config.frequencies ()->best_working_frequency (newBand);
 
     switchBand(row);
 
@@ -14215,7 +14239,6 @@ void MainWindow::ZProcess ()
                                     bool txf = !(fmod(periodTotal/m_TRperiod, 2) == 0);
                                     ui->txFirstCheckBox->setChecked(txf);
                             }
-                            toggleBands();
                             if (m_zdebug) log("ZProcess: Switched to AutoCQ");
                         } else {
                             toggleBands();
@@ -14232,9 +14255,8 @@ void MainWindow::ZProcess ()
                             } else {
                                 auto_tx_mode(false);
                             }
-                        } else {
-                            ui->le_autoCQLeft->setText(QString::number(l-1));
                         }
+                        ui->le_autoCQLeft->setText(QString::number(l-1));
                     } else {
                           resetAutoSwitch();
                           if (ui->cb_autoModeSwitch->isChecked()) {
@@ -14242,6 +14264,9 @@ void MainWindow::ZProcess ()
                               ui->cbAutoCQ->setChecked(false);
                               ui->cbAutoCall->setChecked(true);
                               m_autoModeSwitch = false;
+                              // With auto mode switch enabled, hop only at the
+                              // AutoCQ -> AutoCall boundary.
+                              if (ui->cb_bandHopper->isChecked()) toggleBands();
                               if (m_zdebug) log("ZProcess: Switched to AutoCall");
                           } else {
                               toggleBands();
