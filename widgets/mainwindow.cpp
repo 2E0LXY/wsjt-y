@@ -1035,6 +1035,16 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->lh_decodes_headings_label->setText(t);
   ui->rh_decodes_headings_label->setText(t);
   readSettings();            //Restore user's setup parameters
+  update_mode_switch_status_label ();
+  connect (ui->cb_bandHopper, &QGroupBox::toggled, this, [this] (bool) {
+      update_mode_switch_status_label ();
+    });
+  connect (ui->pte_bandHopper, &QPlainTextEdit::textChanged, this, [this] {
+      update_mode_switch_status_label ();
+    });
+  connect (ui->bandComboBox, &QComboBox::currentTextChanged, this, [this] {
+      update_mode_switch_status_label ();
+    });
   if(m_mode=="Q65") {
     m_score=0;
     read_log();
@@ -3284,6 +3294,12 @@ void MainWindow::createStatusBar()                           //createStatusBar
   labAz.setFrameStyle (QFrame::Panel | QFrame::Sunken);
   statusBar()->addWidget (&labAz);
 
+  mode_switch_status_label.setAlignment (Qt::AlignHCenter);
+  mode_switch_status_label.setMinimumSize (QSize {10, 18});
+  mode_switch_status_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
+  mode_switch_status_label.hide ();
+  statusBar()->addWidget (&mode_switch_status_label);
+
   band_hopping_label.setAlignment (Qt::AlignHCenter);
   band_hopping_label.setMinimumSize (QSize {90, 18});
   band_hopping_label.setFrameStyle (QFrame::Panel | QFrame::Sunken);
@@ -3296,6 +3312,134 @@ void MainWindow::createStatusBar()                           //createStatusBar
 
   statusBar ()->addPermanentWidget (&watchdog_label);
   update_watchdog_label ();
+}
+
+void MainWindow::update_mode_switch_status_label ()
+{
+  QStringList parts;
+
+  int auto_call_left = ui->le_autoCallLeft->text ().toInt ();
+  int auto_cq_left = ui->le_autoCQLeft->text ().toInt ();
+  int auto_call_total = ui->sb_autoCallCount->value ();
+  int auto_cq_total = ui->sb_autoCQCount->value ();
+
+  if (auto_call_total < 0) auto_call_total = 0;
+  if (auto_cq_total < 0) auto_cq_total = 0;
+  if (auto_call_left < 0) auto_call_left = 0;
+  if (auto_cq_left < 0) auto_cq_left = 0;
+  if (auto_call_left > auto_call_total) auto_call_left = auto_call_total;
+  if (auto_cq_left > auto_cq_total) auto_cq_left = auto_cq_total;
+
+  if (ui->cb_autoModeSwitch->isChecked ())
+    {
+      int ms_remaining = 0;
+      int ms_total = 0;
+      if (ui->cbAutoCall->isChecked ()) {
+        ms_remaining = auto_call_left;
+        ms_total = auto_call_total;
+      } else if (ui->cbAutoCQ->isChecked ()) {
+        ms_remaining = auto_cq_left;
+        ms_total = auto_cq_total;
+      }
+
+      if (ms_total > 0)
+        {
+          parts << QString {"MS %1/%2"}
+                   .arg (QString::number (ms_remaining), QString::number (ms_total));
+        }
+    }
+
+  if (ui->cb_bandHopper->isChecked ())
+    {
+      QString bhText = ui->pte_bandHopper->toPlainText ();
+      QStringList bhList = bhText.split (QRegExp {"[\r\n]"}, SkipEmptyParts);
+      int now = QDateTime::currentDateTimeUtc ().toString ("hh").toInt ();
+      int targeth = -1;
+      QString target;
+
+      for (auto const& line : bhList)
+        {
+          auto trimmed = line.trimmed ();
+          int colon = trimmed.indexOf (":");
+          if (colon < 0) continue;
+          int h = trimmed.left (colon).trimmed ().toInt ();
+          if (h <= now && h > targeth)
+            {
+              targeth = h;
+              target = trimmed;
+            }
+        }
+      if (targeth == -1)
+        {
+          for (auto const& line : bhList)
+            {
+              auto trimmed = line.trimmed ();
+              int colon = trimmed.indexOf (":");
+              if (colon < 0) continue;
+              int h = trimmed.left (colon).trimmed ().toInt ();
+              if (h > targeth)
+                {
+                  targeth = h;
+                  target = trimmed;
+                }
+            }
+        }
+
+      if (!target.isEmpty ())
+        {
+          int const split_at = target.indexOf (":");
+          QStringList bands = target.mid (split_at >= 0 ? split_at + 1 : 0).split (",", SkipEmptyParts);
+          for (auto& band : bands) band = band.trimmed ();
+
+          QString next_band;
+          if (!bands.isEmpty ())
+            {
+              QString current_band = m_currentBand.trimmed ();
+              if (current_band.isEmpty ()) {
+                current_band = ui->bandComboBox->currentText ().trimmed ();
+              }
+              int idx = bands.indexOf (current_band);
+              if (idx >= 0 && idx < bands.size () - 1)
+                {
+                  next_band = bands.at (idx + 1);
+                }
+              else
+                {
+                  next_band = bands.at (0);
+                }
+            }
+
+          if (!next_band.isEmpty ())
+            {
+              int bh_remaining = 0;
+              if (ui->cbAutoCall->isChecked ())
+                {
+                  // Updated audo-freq behavior hops at AutoCQ -> AutoCall when
+                  // auto mode switch is enabled.
+                  bh_remaining = auto_call_left;
+                  if (ui->cb_autoModeSwitch->isChecked ()) {
+                    bh_remaining += auto_cq_total;
+                  }
+                }
+              else if (ui->cbAutoCQ->isChecked ())
+                {
+                  bh_remaining = auto_cq_left;
+                }
+
+              if (bh_remaining > 0)
+                {
+                  parts << QString {"BH %1->%2"}
+                           .arg (QString::number (bh_remaining), next_band);
+                }
+            }
+        }
+    }
+
+  mode_switch_status_label.setVisible (!parts.isEmpty ());
+  if (parts.isEmpty ()) return;
+
+  mode_switch_status_label.setText (parts.join (" | "));
+  mode_switch_status_label.setStyleSheet ("QLabel{color: #000000; background-color: #dcefd2}");
 }
 
 void MainWindow::setup_status_bar (bool vhf)
@@ -5762,6 +5906,7 @@ void MainWindow::guiUpdate()
   m_s6=fmod(tsec,6.0);
   int nseq = fmod(double(nsec),m_TRperiod);
   m_tRemaining=m_TRperiod - fmod(tsec,m_TRperiod);
+  update_mode_switch_status_label ();
 
   // Reset FT8 MTD dedup buffer on period boundaries (~2 s before the cycle's
   // early decode fires). Mirrors wsjtx-improved:8296. Paired with removing the
@@ -12894,6 +13039,7 @@ void MainWindow::on_cbAutoCall_toggled(bool b)
     }
 
     auto_tx_mode(false);
+  update_mode_switch_status_label ();
 }
 
 void MainWindow::on_cbAutoCQ_toggled(bool b)
@@ -12911,6 +13057,7 @@ void MainWindow::on_cbAutoCQ_toggled(bool b)
     }
 
     auto_tx_mode(b);
+  update_mode_switch_status_label ();
 }
 
 void MainWindow::on_btn_addToIgnore_clicked( ) {
@@ -14034,6 +14181,7 @@ void MainWindow::on_cb_autoModeSwitch_toggled(bool b) {
     ui->le_autoCallLeft->setText("");
     ui->le_autoCQLeft->setText("");
     }
+  update_mode_switch_status_label ();
 }
 
 void MainWindow::toggleBands() {
@@ -14300,6 +14448,7 @@ void MainWindow::resetAutoSwitch() {
         ui->le_autoCQLeft->setText(QString::number(ui->sb_autoCQCount->value()));
         m_priorityCall = QString();
   m_priorityCallPreferCQTarget = false;
+  update_mode_switch_status_label ();
 }
 
 int MainWindow::watchdog() {

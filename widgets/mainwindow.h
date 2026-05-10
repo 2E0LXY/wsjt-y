@@ -795,6 +795,7 @@ private:
   QLabel auto_tx_label;
   QLabel band_hopping_label;
   QLabel ndecodes_label;
+  QLabel mode_switch_status_label;
   QProgressBar progressBar;
   QLabel watchdog_label;
 
@@ -991,6 +992,7 @@ private:
   void setDecodedTextFont (QFont const&);
   void writeSettings();
   void createStatusBar();
+  void update_mode_switch_status_label();
   void updateStatusBar();
   void genStdMsgs(QString rpt, bool unconditional = false);
   void genCQMsg();
