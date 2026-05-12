@@ -13925,7 +13925,7 @@ void MainWindow::qrzInit() {
     QUrlQuery query;
     query.addQueryItem("username", m_config.qrzComUn());
     query.addQueryItem("password", m_config.qrzComPw());
-    QUrl url("http://xmldata.qrz.com/xml/");
+    QUrl url("https://xmldata.qrz.com/xml/");
     url.setQuery(query);
     QNetworkRequest networkRequest(url);
     connect(networkManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(qrzSetSessionKey(QNetworkReply*)));
@@ -13980,7 +13980,7 @@ void MainWindow::qrzLookup(QString dxCall) {
     QUrlQuery query;
     query.addQueryItem("s", qrzSessionKey);
     query.addQueryItem("callsign", dxCall);
-    QUrl url("http://xmldata.qrz.com/xml/");
+    QUrl url("https://xmldata.qrz.com/xml/");
     url.setQuery(query);
     QNetworkRequest networkRequest(url);
     connect(networkManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(qrzResponseHandler(QNetworkReply*)));
