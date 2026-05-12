@@ -4736,6 +4736,9 @@ list. The list can be maintained in Settings (F2).</string>
     <addaction name="actionWide_Waterfall"/>
     <addaction name="actionAstronomical_data"/>
     <addaction name="actionMessage_averaging"/>
+    <addaction name="actionQSYMessage_Creator"/>
+    <addaction name="actionQSY_Monitor"/>
+    <addaction name="actionEnable_QSY_Popups"/>
     <addaction name="actionEcho_Graph"/>
     <addaction name="actionFast_Graph"/>
     <addaction name="contest_log_action"/>
@@ -5388,6 +5391,24 @@ list. The list can be maintained in Settings (F2).</string>
   <action name="contest_log_action">
    <property name="text">
     <string>Contest log</string>
+   </property>
+  </action>
+  <action name="actionQSYMessage_Creator">
+   <property name="text">
+    <string>QSY Message Creator</string>
+   </property>
+  </action>
+  <action name="actionQSY_Monitor">
+   <property name="text">
+    <string>QSY Monitor</string>
+   </property>
+  </action>
+  <action name="actionEnable_QSY_Popups">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Enable QSY Popups</string>
    </property>
   </action>
   <action name="actionErase_WSPR_hashtable">

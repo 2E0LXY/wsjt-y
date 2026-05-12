@@ -105,6 +105,9 @@
 #include "FoxLogWindow.hpp"
 #include "CabrilloLogWindow.hpp"
 #include "ExportCabrillo.h"
+#include "QSYMessage.h"
+#include "QSYMessageCreator.h"
+#include "qsymonitor.h"
 #include "ui_mainwindow.h"
 #include "moc_mainwindow.cpp"
 #include "Logger.hpp"
@@ -1443,6 +1446,9 @@ void MainWindow::writeSettings()
   m_settings->setValue ("FoxLogDisplayed", m_foxLogWindow && m_foxLogWindow->isVisible ());
   m_settings->setValue ("ContestLogDisplayed", m_contestLogWindow && m_contestLogWindow->isVisible ());
   m_settings->setValue ("ActiveStationsDisplayed", m_ActiveStationsWidget && m_ActiveStationsWidget->isVisible ());
+  m_settings->setValue ("QSYMessageCreatorDisplayed", m_QSYMessageCreatorWidget && m_QSYMessageCreatorWidget->isVisible ());
+  m_settings->setValue ("QSYMonitorDisplayed", m_qsymonitorWidget && m_qsymonitorWidget->isVisible ());
+  m_settings->setValue ("ShowQSYMessages", ui->actionEnable_QSY_Popups->isChecked());
   m_settings->setValue("RespondCQ",ui->respondComboBox->currentIndex());
   m_settings->setValue("HoundSort",ui->comboBoxHoundSort->currentIndex());
   m_settings->setValue("FoxNlist",ui->sbNlist->value());
@@ -1645,6 +1651,9 @@ void MainWindow::readSettings()
   auto displayFoxLog = m_settings->value ("FoxLogDisplayed", false).toBool ();
   auto displayContestLog = m_settings->value ("ContestLogDisplayed", false).toBool ();
   bool displayActiveStations = m_settings->value ("ActiveStationsDisplayed", false).toBool ();
+  bool displayQSYMessageCreator = m_settings->value ("QSYMessageCreatorDisplayed", false).toBool ();
+  bool displayQSYMonitor = m_settings->value ("QSYMonitorDisplayed", false).toBool ();
+  bool enableQSYPopups = m_settings->value ("ShowQSYMessages", true).toBool ();
   ui->respondComboBox->setCurrentIndex(m_settings->value("RespondCQ",0).toInt());
   ui->comboBoxHoundSort->setCurrentIndex(m_settings->value("HoundSort",3).toInt());
   ui->sbNlist->setValue(m_settings->value("FoxNlist",12).toInt());
@@ -1724,6 +1733,7 @@ void MainWindow::readSettings()
 
   // do this outside of settings group because it uses groups internally
   ui->actionAstronomical_data->setChecked (displayAstro);
+  ui->actionEnable_QSY_Popups->setChecked (enableQSYPopups);
 
   // do this in the General group because we save the parameters from various places
   if(m_mode=="JT9") {
@@ -1931,6 +1941,8 @@ void MainWindow::readSettings()
   if (displayFoxLog) on_fox_log_action_triggered ();
   if (displayContestLog) on_contest_log_action_triggered ();
   if (displayActiveStations) on_actionActiveStations_triggered();
+  if (displayQSYMessageCreator) on_actionQSYMessage_Creator_triggered();
+  if (displayQSYMonitor) on_actionQSY_Monitor_triggered();
   // Z
   if (showRawView) on_actionUnfiltered_View_triggered();
   if (showPskView) on_actionPSKReporter_triggered();
@@ -1989,6 +2001,9 @@ void MainWindow::setDecodedTextFont (QFont const& font)
   }
   if(m_ActiveStationsWidget != NULL) {
     m_ActiveStationsWidget->changeFont(font);
+  }
+  if (m_qsymonitorWidget) {
+    m_qsymonitorWidget->changeFont (font);
   }
   updateGeometry ();
 }
@@ -3912,6 +3927,125 @@ void MainWindow::on_actionActiveStations_triggered()
   m_ActiveStationsWidget->setupUi(as_mode);
 }
 
+void MainWindow::update_tx5(const QString &qsy_text)
+{
+  if (m_hisCall == "") {
+    MessageBox::warning_message(this, "WSJT-Z",
+                                "There must be a callsign in the\n DX Call Box to send QSY Request");
+  } else {
+    QString text = qsy_text;
+    ui->tx6->setText(text.replace("$DX", m_hisCall));
+    ui->txb6->click();
+    stopWRTimer.stop();
+    if (!m_auto) {
+      ui->autoButton->click();
+      stopWRTimer.start(int(1750.0 * m_TRperiod));
+    }
+  }
+}
+
+void MainWindow::reply_tx5(const QString &qsy_reply)
+{
+  ui->tx6->setText(qsy_reply);
+  ui->txb6->click();
+  stopWRTimer.stop();
+  if (!m_auto) {
+    ui->autoButton->click();
+  }
+  stopWRTimer.start(int(1750.0 * m_TRperiod));
+}
+
+void MainWindow::on_actionQSYMessage_Creator_triggered()
+{
+  if (!m_QSYMessageCreatorWidget) {
+    m_QSYMessageCreatorWidget.reset(new QSYMessageCreator {m_settings, &m_config});
+    connect(this, &MainWindow::finished, m_QSYMessageCreatorWidget.data(), &QSYMessageCreator::close);
+    connect(m_QSYMessageCreatorWidget.data(), &QSYMessageCreator::sendMessage,
+            this, &MainWindow::update_tx5);
+  }
+
+  m_QSYMessageCreatorWidget->setWindowFlags(
+      m_QSYMessageCreatorWidget->windowFlags() | Qt::WindowStaysOnTopHint);
+  m_QSYMessageCreatorWidget->showNormal();
+  m_QSYMessageCreatorWidget->raise();
+  m_QSYMessageCreatorWidget->activateWindow();
+  m_QSYMessageCreatorWidget->getDxBase(QString(Radio::base_callsign(ui->dxCallEntry->text())));
+}
+
+void MainWindow::on_actionQSY_Monitor_triggered()
+{
+  if (!m_qsymonitorWidget) {
+    m_qsymonitorWidget.reset(new QSYMonitor {m_settings, m_config.decoded_text_font(), &m_config});
+    connect(this, &MainWindow::finished, m_qsymonitorWidget.data(), &QSYMonitor::close);
+  }
+
+  m_qsymonitorWidget->setWindowFlags(m_qsymonitorWidget->windowFlags() | Qt::WindowStaysOnTopHint);
+  m_qsymonitorWidget->showNormal();
+  m_qsymonitorWidget->raise();
+  m_qsymonitorWidget->activateWindow();
+}
+
+void MainWindow::showQSYMessage(QString message)
+{
+  QString the_line = message;
+  QString qCall = QString(Radio::base_callsign(m_config.my_callsign()));
+  QString qDXCall = QString(Radio::base_callsign(ui->dxCallEntry->text()));
+
+  if (the_line.mid(22).contains(QString("."))) {
+    if (!(the_line.contains("OKQSY") || the_line.contains("NOQSY"))) {
+      QStringList bhList = the_line.split(" ", SkipEmptyParts);
+      QString the_message = "";
+      QString the_call = "";
+      for (const QString &element : bhList) {
+        if (element.contains(QString("."))) {
+          the_message = element.mid(element.indexOf(".") + 1);
+          the_call = element.mid(0, element.indexOf("."));
+          if (the_message.length() > 0) {
+            QString finalMatch = "";
+            QRegularExpression re1("[A-Z479][V0123456789ABCDEFGHIJKLRW][0-9]{3}");
+            QRegularExpressionMatch match = re1.match(the_message);
+            if (match.hasMatch()) {
+              finalMatch = match.captured();
+              if (the_call == qCall && ui->actionEnable_QSY_Popups->isChecked()) {
+                if (m_QSYMessageWidget) {
+                  m_QSYMessageWidget->write_settings();
+                }
+                m_QSYMessageWidget.reset(new QSYMessage(finalMatch, qCall, m_settings, &m_config));
+                connect(this, &MainWindow::finished, m_QSYMessageWidget.data(), &QSYMessage::close);
+                connect(m_QSYMessageWidget.data(), &QSYMessage::sendReply,
+                        this, &MainWindow::reply_tx5,
+                        static_cast<Qt::ConnectionType>(Qt::UniqueConnection));
+                m_QSYMessageWidget->setWindowFlags(
+                    m_QSYMessageWidget->windowFlags() | Qt::WindowStaysOnTopHint);
+                m_QSYMessageWidget->show();
+                m_QSYMessageWidget->raise();
+                m_QSYMessageWidget->activateWindow();
+              }
+              if (m_qsymonitorWidget && !finalMatch.isEmpty() && finalMatch.mid(0, 1) != 'Z') {
+                m_qsymonitorWidget->getQSYData(QString(bhList[0]) + " " + the_call + " " + finalMatch);
+              }
+            }
+          }
+        }
+      }
+    } else if (((the_line.mid(22).contains(qDXCall + QString(".") + "OKQSY")
+                 || the_line.mid(22).contains(qDXCall + QString(".") + "NOQSY")))
+                && ui->actionEnable_QSY_Popups->isChecked()) {
+      QString yesOrNo = the_line.contains("OKQSY") ? QString(" OKQSY") : QString(" NOQSY");
+      on_stopTxButton_clicked();
+      QString qNewMessage = QString("$ ") + qDXCall + yesOrNo;
+      if (m_QSYMessageWidget) {
+        m_QSYMessageWidget->write_settings();
+      }
+      m_QSYMessageWidget.reset(new QSYMessage(qNewMessage, qDXCall, m_settings, &m_config));
+      connect(this, &MainWindow::finished, m_QSYMessageWidget.data(), &QSYMessage::close);
+      m_QSYMessageWidget->show();
+      m_QSYMessageWidget->raise();
+      m_QSYMessageWidget->activateWindow();
+    }
+  }
+}
+
 void MainWindow::on_actionOpen_triggered()                     //Open File
 {
   monitor (false);
@@ -5039,6 +5173,11 @@ void MainWindow::readFromStdout()                             //readFromStdout
       // truncate before line ending chars
       line_read = line_read.left (p - line_read.constData ());
     }
+
+    if (ui->actionEnable_QSY_Popups->isChecked() || m_qsymonitorWidget) {
+      showQSYMessage(QString::fromUtf8(line_read.constData()));
+    }
+
     if(bDisplayPoints) line_read=line_read.replace("a7","  ");
     bool haveFSpread {false};
     float fSpread {0.};

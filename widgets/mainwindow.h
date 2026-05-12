@@ -87,6 +87,9 @@ class MessageAveraging;
 class ActiveStations;
 class FoxLogWindow;
 class CabrilloLogWindow;
+class QSYMessageCreator;
+class QSYMessage;
+class QSYMonitor;
 class ColorHighlighting;
 class MessageClient;
 class QTime;
@@ -283,6 +286,8 @@ private slots:
   void handle_transceiver_update (Transceiver::TransceiverState const&);
   void handle_transceiver_failure (QString const& reason);
   void on_actionAstronomical_data_toggled (bool);
+  void on_actionQSYMessage_Creator_triggered();
+  void on_actionQSY_Monitor_triggered();
   void on_actionShort_list_of_add_on_prefixes_and_suffixes_triggered();
   void band_changed (Frequency);
   void monitor (bool);
@@ -444,6 +449,8 @@ private slots:
      void on_actionPSKReporter_triggered();
      void updateQsoCounter(bool increment);
      void on_txFirstCheckBox_toggled();
+    void update_tx5(const QString &qsy_text);
+    void reply_tx5(const QString &qsy_reply);
 
 private:
   Q_SIGNAL void initializeAudioOutputStream (QAudioDeviceInfo,
@@ -482,6 +489,7 @@ private:
   bool elide_tx1_not_allowed () const;
   void readWidebandDecodes();
   void configActiveStations();
+  void showQSYMessage(QString message);
   void sfox_tx();
   // Z
   void ci_gridLookup();
@@ -547,6 +555,9 @@ private:
   QScopedPointer<FastGraph> m_fastGraph;
   QScopedPointer<LogQSO> m_logDlg;
   QScopedPointer<Astro> m_astroWidget;
+  QScopedPointer<QSYMessageCreator> m_QSYMessageCreatorWidget;
+  QScopedPointer<QSYMessage> m_QSYMessageWidget;
+  QScopedPointer<QSYMonitor> m_qsymonitorWidget;
   QScopedPointer<HelpTextWindow> m_shortcuts;
   QScopedPointer<HelpTextWindow> m_prefixes;
   QScopedPointer<HelpTextWindow> m_mouseCmnds;

@@ -14,7 +14,8 @@ SOURCES += \
   widgets/FrequencyLineEdit.cpp widgets/FrequencyDeltaLineEdit.cpp \
   widgets/FoxLogWindow.cpp widgets/CabrilloLogWindow.cpp \
   widgets/HelpTextWindow.cpp widgets/RestrictedSpinBox.cpp \
-  widgets/LazyFillComboBox.cpp widgets/CheckableItemComboBox.cpp
+  widgets/LazyFillComboBox.cpp widgets/CheckableItemComboBox.cpp \
+  widgets/QSYMessage.cpp widgets/QSYMessageCreator.cpp widgets/qsymonitor.cpp
 
 HEADERS  += \
   $$PWD/pskreporterwidget.h \
@@ -31,7 +32,8 @@ HEADERS  += \
   widgets/FoxLogWindow.hpp widgets/CabrilloLogWindow.hpp \
   widgets/DateTimeEdit.hpp widgets/HelpTextWindow.hpp \
   widgets/RestrictedSpinBox.hpp \
-  widgets/LazyFillComboBox.hpp widgets/CheckableItemComboBox.hpp
+  widgets/LazyFillComboBox.hpp widgets/CheckableItemComboBox.hpp \
+  widgets/QSYMessage.h widgets/QSYMessageCreator.h widgets/qsymonitor.h
 
 FORMS    += \
   $$PWD/pskreporterwidget.ui \
@@ -42,4 +44,5 @@ FORMS    += \
   widgets/activeStations.ui \
   widgets/echograph.ui widgets/fastgraph.ui \
   widgets/colorhighlighting.ui widgets/ExportCabrillo.ui \
-  widgets/FoxLogWindow.ui widgets/CabrilloLogWindow.ui
+  widgets/FoxLogWindow.ui widgets/CabrilloLogWindow.ui \
+  widgets/QSYMessage.ui widgets/QSYMessageCreator.ui widgets/qsymonitor.ui
