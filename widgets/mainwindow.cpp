@@ -1852,6 +1852,7 @@ void MainWindow::readSettings()
   m_minSync=m_settings->value("MinSync",0).toInt();
   ui->syncSpinBox->setValue(m_minSync);
   ui->cbAutoSeq->setChecked (m_settings->value ("AutoSeq", false).toBool());
+  ui->cbFirst->setChecked (ui->respondComboBox->currentIndex() == 1);
   ui->cbRxAll->setChecked (m_settings->value ("RxAll", false).toBool());
 // m_bShMsgs=m_settings->value("ShMsgs",false).toBool();
   m_bSWL=m_settings->value("SWL",false).toBool();
@@ -11568,6 +11569,28 @@ void MainWindow::on_cbAutoSeq_toggled(bool b)
 {
   ui->respondComboBox->setVisible((m_mode=="FT8" or m_mode=="FT4" or m_mode=="FT2" or m_mode=="FST4"
                            or m_mode=="Q65") and b);
+}
+
+void MainWindow::on_cbFirst_toggled(bool checked)
+{
+  auto const desired_index = checked ? 1 : 0;   // CQ: First or CQ: None
+  if (ui->respondComboBox->currentIndex() != desired_index)
+    {
+      auto const blocked = ui->respondComboBox->blockSignals(true);
+      ui->respondComboBox->setCurrentIndex(desired_index);
+      ui->respondComboBox->blockSignals(blocked);
+    }
+}
+
+void MainWindow::on_respondComboBox_currentIndexChanged(int index)
+{
+  auto const call_first = (index == 1);         // only CQ: First means checked
+  if (ui->cbFirst->isChecked() != call_first)
+    {
+      auto const blocked = ui->cbFirst->blockSignals(true);
+      ui->cbFirst->setChecked(call_first);
+      ui->cbFirst->blockSignals(blocked);
+    }
 }
 
 void MainWindow::on_measure_check_box_stateChanged (int state)
