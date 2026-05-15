@@ -14417,16 +14417,19 @@ void MainWindow::ZProcess ()
                             m_autoModeSwitch = true;
                             ui->cbAutoCall->setChecked(false);
                             ui->cbAutoCQ->setChecked(true);
-                          if (m_smartModeSwitch) {
-                            ui->cbHoldTxFreq->setChecked(true);
-                            bool freeSlotFound = false;
-                            if (busySlots.size() >= 2) {
-                              freeSlotFound = setFreeFreq();
-                            }
-                            m_autoTXFreq = !freeSlotFound;
-                            auto_tx_mode(freeSlotFound);
-                          } else if (m_config.autoTXFreq()) {
-                            m_autoTXFreq=true;
+                            if (m_smartModeSwitch) {
+                              ui->cbHoldTxFreq->setChecked(true);
+                              if (m_config.autoTXFreq()) {
+                                bool freeSlotFound = (busySlots.size() >= 2 && setFreeFreq());
+                                m_autoTXFreq = !freeSlotFound;
+                                auto_tx_mode(freeSlotFound);
+                              } else {
+                                // Respect config: no free-slot search on mode change.
+                                m_autoTXFreq = false;
+                                auto_tx_mode(true);
+                              }
+                            } else if (m_config.autoTXFreq()) {
+                              m_autoTXFreq = true;
                             }
                             m_autoModeSwitch = false;
                             if  (!m_TxFirstLock) {
