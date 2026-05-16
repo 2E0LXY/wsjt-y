@@ -427,6 +427,7 @@ private slots:
      void on_txrb6_doubleClicked ();
      void dxLookup(QString dxCall, QString dxGrid);
      void leftClickHandler(Qt::KeyboardModifiers modifiers);
+    void bandActivityClickToggle(Qt::KeyboardModifiers modifiers);
      void on_actionCall_info_triggered();
      void on_actionDark_mode_triggered();
      void qrzInit();
@@ -976,6 +977,7 @@ private:
   QByteArray m_geometryNoControls;
   QVector<double> m_phaseEqCoefficients;
   bool m_block_udp_status_updates;
+  bool m_bandActivityRawView = false;
 
   //---------------------------------------------------- private functions
   // Z 
@@ -985,6 +987,8 @@ private:
   void clearCallInfo();
   QString  stateLookup(QString callsign);
   QString leftJustifyAppendage (QString message, QString appendage);
+  void updateBandActivityTitleLabel();
+  QString formatRawViewLine(DecodedText const& decodedtext0, QString const& deCall);
   void clearRXWindows();
 
   void readSettings();

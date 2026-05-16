@@ -105,7 +105,7 @@ void DisplayText::mouseDoubleClickEvent(QMouseEvent *e)
      } else {
          textCursor.select(QTextCursor::LineUnderCursor);
          setTextCursor(textCursor);
-         Q_EMIT leftClick(mouseEvent->modifiers ());
+     Q_EMIT leftClick(mouseEvent->modifiers());
      }
  }
 

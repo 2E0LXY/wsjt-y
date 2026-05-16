@@ -797,6 +797,14 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // Z
   connect (ui->decodedTextBrowser2, &DisplayText::leftClick, this, &MainWindow::leftClickHandler);
   connect (ui->decodedTextBrowser, &DisplayText::leftClick, this, &MainWindow::leftClickHandler);
+  ui->lh_decodes_title_label->setTextFormat(Qt::RichText);
+  ui->lh_decodes_title_label->setTextInteractionFlags(Qt::LinksAccessibleByMouse);
+  ui->lh_decodes_title_label->setOpenExternalLinks(false);
+  connect (ui->lh_decodes_title_label, &QLabel::linkActivated, this, [this] (QString const& link) {
+      if (link == "toggle_ba_view") {
+        bandActivityClickToggle(Qt::NoModifier);
+      }
+    });
   ui->groupBox->setVisible(false);
 
   // initialize decoded text font and hook up font change signals
@@ -1035,6 +1043,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->lh_decodes_headings_label->setText(t);
   ui->rh_decodes_headings_label->setText(t);
   readSettings();            //Restore user's setup parameters
+  updateBandActivityTitleLabel();
   update_mode_switch_status_label ();
   connect (ui->cb_bandHopper, &QGroupBox::toggled, this, [this] (bool) {
       update_mode_switch_status_label ();
@@ -2117,8 +2126,12 @@ void MainWindow::dataSink(qint64 frames)
     freqcal_(&dec_data.d2[0], &k, &nkhz, &RxFreq, &ftol, &line[0], (FCL)80);
     QString t=QString::fromLatin1(line);
     DecodedText decodedtext {t};
-    ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign(),
-          m_mode, m_config.DXCC(), m_logBook, m_currentBand, m_config.ppfx());
+    if (m_bandActivityRawView) {
+      ui->decodedTextBrowser->insertText(decodedtext.clean_string().trimmed());
+    } else {
+      ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign(),
+            m_mode, m_config.DXCC(), m_logBook, m_currentBand, m_config.ppfx());
+    }
     if (ui->measure_check_box->isChecked ()) {
       // Append results text to file "fmt.all".
       QFile f {m_config.writeable_data_dir ().absoluteFilePath ("fmt.all")};
@@ -2424,8 +2437,12 @@ void MainWindow::fastSink(qint64 frames)
   if(bmsk144 and (line[0]!=0)) {
     QString message {QString::fromLatin1 (line)};
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
-    ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC(),
-         m_logBook, m_currentBand, m_config.ppfx ());
+    if (m_bandActivityRawView) {
+      ui->decodedTextBrowser->insertText(decodedtext.clean_string().trimmed());
+    } else {
+      ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC(),
+           m_logBook, m_currentBand, m_config.ppfx ());
+    }
     m_bDecoded=true;
     auto_sequence (decodedtext, ui->sbFtol->value (), std::numeric_limits<unsigned>::max ());
     postDecode (true, decodedtext.string ());
@@ -3039,8 +3056,12 @@ void MainWindow::handleVerifyMsg(int status, QDateTime ts, QString callsign, QSt
           verified = true;
           ui->labDXped->setStyleSheet("QLabel {background-color: #00ff00; color: black;}");
         }
-        ui->decodedTextBrowser->displayDecodedText(DecodedText{msg}, m_config.my_callsign(), m_mode, m_config.DXCC(),
-                                                   m_logBook, m_currentBand, m_config.ppfx());
+        if (m_bandActivityRawView) {
+          ui->decodedTextBrowser->insertText(DecodedText{msg}.clean_string().trimmed());
+        } else {
+          ui->decodedTextBrowser->displayDecodedText(DecodedText{msg}, m_config.my_callsign(), m_mode, m_config.DXCC(),
+                                                     m_logBook, m_currentBand, m_config.ppfx());
+        }
         write_all("Ck",msg);
       }
     }
@@ -3182,10 +3203,10 @@ void MainWindow::statusChanged()
       ui->rh_decodes_title_label->setText(tr ("Average Decodes"));
     } else {
       if (m_config.enable_VHF_features()) {
-        ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+        updateBandActivityTitleLabel();
         ui->rh_decodes_title_label->setText(tr ("Decodes containing My Call"));
       } else {
-        ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+        updateBandActivityTitleLabel();
         ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
       }
     }
@@ -4516,8 +4537,12 @@ void::MainWindow::fast_decode_done()
 //Left (Band activity) window
     DecodedText decodedtext {message.replace (QChar::LineFeed, "")};
     if(!m_bFastDone) {
-      ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
-         m_logBook, m_currentBandPeriod, m_config.ppfx ());
+      if (m_bandActivityRawView) {
+        ui->decodedTextBrowser->insertText(decodedtext.clean_string().trimmed());
+      } else {
+        ui->decodedTextBrowser->displayDecodedText (decodedtext, m_config.my_callsign (), m_mode, m_config.DXCC (),
+           m_logBook, m_currentBandPeriod, m_config.ppfx ());
+      }
     }
 
     t=message.mid(10,5).toFloat();
@@ -5129,7 +5154,11 @@ void MainWindow::readFromStdout()                             //readFromStdout
                 or m_displayBand) {
               band = ' ' + m_config.bands ()->find (m_freqNominal);
             }
-            ui->decodedTextBrowser->insertLineSpacer (band.rightJustified  (40, '-'));
+            if (m_bandActivityRawView) {
+              ui->decodedTextBrowser->insertText (band.rightJustified  (40, '-'));
+            } else {
+              ui->decodedTextBrowser->insertLineSpacer (band.rightJustified  (40, '-'));
+            }
             // Z
             if (m_unfilteredView && m_unfilteredView->isVisible()) {
                 m_unfilteredView->display(band.rightJustified  (40, '-'));
@@ -5199,7 +5228,7 @@ void MainWindow::readFromStdout()                             //readFromStdout
 //Left (Band activity) window
       if(!bAvgMsg) {
         if(m_mode=="FT8" and SpecOp::FOX == m_specOp) {
-          if(!m_bDisplayedOnce) {
+          if(!m_bDisplayedOnce && !m_bandActivityRawView) {
             // This hack sets the font.  Surely there's a better way!
             DecodedText dt{"."};
             ui->decodedTextBrowser->displayDecodedText (dt, my_call, m_mode, dxcc,
@@ -5228,33 +5257,13 @@ void MainWindow::readFromStdout()                             //readFromStdout
             QString grid;
             decodedtext.deCallAndGrid(deCall,grid);
 
-        if (m_unfilteredView && m_unfilteredView->isVisible()) {
-            QString m = decodedtext0.clean_string().trimmed();
-            if (m_config.rawViewDXCC()) {
-                auto const& entity = m_logBook.countries ()->lookup (deCall);
-                auto countryName = entity.entity_name;
-                countryName.replace ("Islands", "Is.");
-                countryName.replace ("Island", "Is.");
-                countryName.replace ("North ", "N. ");
-                countryName.replace ("Northern ", "N. ");
-                countryName.replace ("South ", "S. ");
-                countryName.replace ("East ", "E. ");
-                countryName.replace ("Eastern ", "E. ");
-                countryName.replace ("West ", "W. ");
-                countryName.replace ("Western ", "W. ");
-                countryName.replace ("Central ", "C. ");
-                countryName.replace (" and ", " & ");
-                countryName.replace ("Republic", "Rep.");
-                countryName.replace ("United States", "U.S.A.");
-                countryName.replace ("Fed. Rep. of ", "");
-                countryName.replace ("French ", "Fr.");
-                countryName.replace ("Asiatic", "AS");
-                countryName.replace ("European", "EU");
-                countryName.replace ("African", "AF");
+    QString rawViewLine;
+    if ((m_unfilteredView && m_unfilteredView->isVisible()) || m_bandActivityRawView) {
+      rawViewLine = formatRawViewLine(decodedtext0, deCall);
+    }
 
-                m = leftJustifyAppendage(m, countryName);
-            }
-            m_unfilteredView->display(m);
+        if (m_unfilteredView && m_unfilteredView->isVisible()) {
+      m_unfilteredView->display(rawViewLine);
         }
 
 
@@ -5355,27 +5364,31 @@ void MainWindow::readFromStdout()                             //readFromStdout
               // leading "? ", and Q65 "q1..q9[0-9*]?") before display. Anchored on a
               // leading whitespace + word boundary so we do NOT mangle callsigns that
               // happen to contain "a1".."a9" as a substring (e.g., PA1ABC, LA2XYZ).
-              if (ui->actionHide_AP_info->isVisible() && ui->actionHide_AP_info->isChecked()) {
-                  static QRegularExpression const kReAP {
+                if (m_bandActivityRawView) {
+                  ui->decodedTextBrowser->insertText(rawViewLine);
+                } else {
+                  if (ui->actionHide_AP_info->isVisible() && ui->actionHide_AP_info->isChecked()) {
+                    static QRegularExpression const kReAP {
                       R"(\s+(?:\?\s+)?(?:a[1-9]|q[1-9][0-9*]?)\b)"};
-                  QString stripped = line_read;
-                  stripped.replace(kReAP, "");
-                  DecodedText decodedtextNoAP {stripped};
-                  ui->decodedTextBrowser->displayDecodedText(decodedtextNoAP,m_baseCall,m_mode,dxcc,
-                                                             m_logBook,m_currentBand,m_config.ppfx(),
-                                                             ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                             haveFSpread, fSpread, bDisplayPoints, m_points, ui->cbCQonlyIncl73->isChecked(), m_config.colourAll(), distance, state, isFiltered);
-              } else {
-                  ui->decodedTextBrowser->displayDecodedText(decodedtext1,m_baseCall,m_mode,dxcc,
-                                                             m_logBook,m_currentBand,m_config.ppfx(),
-                                                             ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
-                                                             haveFSpread, fSpread, bDisplayPoints, m_points, ui->cbCQonlyIncl73->isChecked(), m_config.colourAll(), distance, state, isFiltered);
-              }
+                    QString stripped = line_read;
+                    stripped.replace(kReAP, "");
+                    DecodedText decodedtextNoAP {stripped};
+                    ui->decodedTextBrowser->displayDecodedText(decodedtextNoAP,m_baseCall,m_mode,dxcc,
+                                         m_logBook,m_currentBand,m_config.ppfx(),
+                                         ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+                                         haveFSpread, fSpread, bDisplayPoints, m_points, ui->cbCQonlyIncl73->isChecked(), m_config.colourAll(), distance, state, isFiltered);
+                  } else {
+                    ui->decodedTextBrowser->displayDecodedText(decodedtext1,m_baseCall,m_mode,dxcc,
+                                         m_logBook,m_currentBand,m_config.ppfx(),
+                                         ui->cbCQonly->isVisible() && ui->cbCQonly->isChecked(),
+                                         haveFSpread, fSpread, bDisplayPoints, m_points, ui->cbCQonlyIncl73->isChecked(), m_config.colourAll(), distance, state, isFiltered);
+                  }
 
-              if (ui->dxCallEntry->text() == deCall && m_config.highlightDX())
-              {
-                  ui->decodedTextBrowser->highlight_callsign(ui->dxCallEntry->text(), QColor(255,0,0), QColor(255,255,255), true);
-              }
+                  if (ui->dxCallEntry->text() == deCall && m_config.highlightDX())
+                  {
+                    ui->decodedTextBrowser->highlight_callsign(ui->dxCallEntry->text(), QColor(255,0,0), QColor(255,255,255), true);
+                  }
+                }
 
           }
 
@@ -8593,7 +8606,7 @@ void MainWindow::on_actionFST4_triggered()
   m_FFTSize = m_nsps / 2;
   if (m_tci_audio) Q_EMIT m_config.transceiver_blocksize (m_FFTSize);
   else Q_EMIT FFTSize(m_FFTSize);
-  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+  updateBandActivityTitleLabel();
   ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
   WSPR_config(false);
   if(m_config.single_decode()) {
@@ -8709,7 +8722,7 @@ void MainWindow::on_actionFT2_triggered()
     m_detector->setTRPeriod(m_TRperiod);
   }
   ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
-  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+  updateBandActivityTitleLabel();
   ui->lh_decodes_headings_label->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
   displayWidgets(nWidgets("11101000010011100001000000011000100000"));
   ui->txrb2->setEnabled(true);
@@ -8766,7 +8779,7 @@ void MainWindow::on_actionFT4_triggered()
     m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   }
   ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
-  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+  updateBandActivityTitleLabel();
   ui->lh_decodes_headings_label->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
 //                         01234567890123456789012345678901234567
   displayWidgets(nWidgets("11101000010011100001000000011000100000"));
@@ -8823,7 +8836,7 @@ void MainWindow::on_actionFT8_triggered()
     ui->lh_decodes_title_label->setText(tr ("Stations calling DXpedition %1").arg (m_config.my_callsign()));
     ui->lh_decodes_headings_label->setText( "Call         Grid   dB  Freq   Dist Age Cont Score");
   } else {
-    ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+    updateBandActivityTitleLabel();
     ui->lh_decodes_headings_label->setText( "  UTC   dB   DT Freq    " + tr ("Message"));
   }
 //                         01234567890123456789012345678901234567
@@ -9067,7 +9080,7 @@ void MainWindow::on_actionJT9_triggered()
     m_modulator->setTRPeriod(m_TRperiod); // TODO - not thread safe
     m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   }
-  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+  updateBandActivityTitleLabel();
   ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
   if(bVHF) {
     //                       01234567890123456789012345678901234567
@@ -9130,7 +9143,7 @@ void MainWindow::on_actionJT65_triggered()
     ui->cbShMsgs->setChecked(m_bShMsgs);
   } else {
     ui->sbSubmode->setValue(0);
-    ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+    updateBandActivityTitleLabel();
     ui->rh_decodes_title_label->setText(tr ("Rx Frequency"));
   }
   if(bVHF) {
@@ -9282,7 +9295,7 @@ void MainWindow::on_actionMSK144_triggered()
     m_detector->setTRPeriod(m_TRperiod);  // TODO - not thread safe
   }
   m_fastGraph->setTRPeriod(m_TRperiod);
-  ui->lh_decodes_title_label->setText(tr ("Band Activity"));
+  updateBandActivityTitleLabel();
   ui->rh_decodes_title_label->setText(tr ("Tx Messages"));
   ui->actionMSK144->setChecked(true);
   ui->rptSpinBox->setMinimum(-8);
@@ -13827,6 +13840,16 @@ void MainWindow::leftClickHandler(Qt::KeyboardModifiers modifiers) {
   }
 }
 
+void MainWindow::bandActivityClickToggle(Qt::KeyboardModifiers modifiers)
+{
+  (void) modifiers;
+  m_bandActivityRawView = !m_bandActivityRawView;
+  updateBandActivityTitleLabel();
+  showStatusMessage(m_bandActivityRawView
+                    ? tr("Band Activity view: Raw")
+                    : tr("Band Activity view: Filtered"));
+}
+
 void MainWindow::dxLookup(QString dxCall, QString dxGrid) {
 
     if (!ui->w_callInfo->isVisible()) return;
@@ -14541,6 +14564,46 @@ QString MainWindow::leftJustifyAppendage (QString message, QString appendage)
       }
       message += appendage;
     }
+  return message;
+}
+
+void MainWindow::updateBandActivityTitleLabel()
+{
+  auto const mode = m_bandActivityRawView ? tr("Raw View") : tr("Band Activity");
+  ui->lh_decodes_title_label->setText(
+      tr("<a href=\"toggle_ba_view\" style=\"text-decoration:none; color:inherit;\">"
+         "%1"
+         "</a>")
+          .arg(mode));
+}
+
+QString MainWindow::formatRawViewLine(DecodedText const& decodedtext0, QString const& deCall)
+{
+  QString message = decodedtext0.clean_string().trimmed();
+  if (m_config.rawViewDXCC()) {
+    auto const& entity = m_logBook.countries ()->lookup (deCall);
+    auto countryName = entity.entity_name;
+    countryName.replace ("Islands", "Is.");
+    countryName.replace ("Island", "Is.");
+    countryName.replace ("North ", "N. ");
+    countryName.replace ("Northern ", "N. ");
+    countryName.replace ("South ", "S. ");
+    countryName.replace ("East ", "E. ");
+    countryName.replace ("Eastern ", "E. ");
+    countryName.replace ("West ", "W. ");
+    countryName.replace ("Western ", "W. ");
+    countryName.replace ("Central ", "C. ");
+    countryName.replace (" and ", " & ");
+    countryName.replace ("Republic", "Rep.");
+    countryName.replace ("United States", "U.S.A.");
+    countryName.replace ("Fed. Rep. of ", "");
+    countryName.replace ("French ", "Fr.");
+    countryName.replace ("Asiatic", "AS");
+    countryName.replace ("European", "EU");
+    countryName.replace ("African", "AF");
+
+    message = leftJustifyAppendage(message, countryName);
+  }
   return message;
 }
 
