@@ -7958,6 +7958,10 @@ void MainWindow::lookup()
 
 void MainWindow::on_lookupButton_clicked()                    //Lookup button
 {
+  if (!ui->w_callInfo->isVisible()) {
+    ui->actionCall_info->setChecked(true);
+    ui->w_callInfo->setVisible(true);
+  }
   lookup();
   dxLookup(ui->dxCallEntry->text().trimmed().toUpper(), ui->dxGridEntry->text().trimmed().toUpper());
 }
