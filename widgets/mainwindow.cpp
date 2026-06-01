@@ -13615,6 +13615,15 @@ void MainWindow::on_actionCall_next_triggered() {
 
     useNextCall();
     on_txb1_clicked();
+
+    // Right-click pounce should override Hold Tx and Tx First Lock.
+    ui->cbHoldTxFreq->setChecked(false);
+    if (m_TxFirstLock) {
+        m_TxFirstLock = false;
+        ui->txFirstCheckBox->setChecked(false);
+        ui->txFirstCheckBox->setStyleSheet("");
+    }
+
     ui->cb_autoCallNext->setChecked(true);
 }
 
@@ -13628,14 +13637,15 @@ void MainWindow::on_actionClear_triggered() {
 
 void MainWindow::on_cb_autoCallNext_toggled(bool b) {
     if (b) {
-       ui->dxCallEntry->setStyleSheet("background-color: #00aa00;");
-       ui->cbAutoCall->setChecked(false);
-       ui->cbAutoCQ->setChecked(false);
-       genStdMsgs("");
-       on_txb1_clicked();
-       if (ui->cb_autoModeSwitch->isChecked()) resetAutoSwitch();
+      ui->dxCallEntry->setStyleSheet("background-color: #00aa00;");
+      ui->cbAutoCall->setChecked(false);
+      ui->cbAutoCQ->setChecked(false);
+      genStdMsgs("");
+      on_txb1_clicked();
+      if (ui->cb_autoModeSwitch->isChecked()) resetAutoSwitch();
     } else {
-       ui->dxCallEntry->setStyleSheet("");
+      ui->dxCallEntry->setStyleSheet("");
+      clearPounceState();
     }
 }
 
@@ -14271,8 +14281,7 @@ void MainWindow::switchBand(int row) {
         ui->stopTxButton->click ();
         ui->bandComboBox->setCurrentIndex (row);
         on_bandComboBox_activated (row);
-        m_priorityCall = QString();
-        m_priorityCallPreferCQTarget = false;
+        clearPounceState();
         m_lastCall = QString();
         clearDX();
         busySlots.clear();
@@ -14317,8 +14326,7 @@ void MainWindow::ZProcess ()
     if (m_zdebug) log("ZProcess: ENTRY");
     if (m_transmitting)
     {
-        m_priorityCall = QString();
-      m_priorityCallPreferCQTarget = false;
+        clearPounceState();
         if (m_zdebug) log("ZProcess: EXIT (Transmitting)");
         return;
     }
@@ -14355,8 +14363,11 @@ void MainWindow::ZProcess ()
         useNextCall();
         on_txb1_clicked();
         auto_tx_mode(true);
+        QString highlightCall = m_priorityCall;
         ui->cb_autoCallNext->setChecked(false);
-        if (m_config.highlightDX()) ui->decodedTextBrowser->highlight_callsign(m_priorityCall, QColor(255,0,0), QColor(255,255,255), true);
+        if (m_config.highlightDX() && !highlightCall.isEmpty()) {
+            ui->decodedTextBrowser->highlight_callsign(highlightCall, QColor(255,0,0), QColor(255,255,255), true);
+        }
 
     }
 
@@ -14433,8 +14444,7 @@ void MainWindow::ZProcess ()
 
     m_maxDistance = 0 ;
     m_maxSignal = -30;
-    m_priorityCall = QString();
-    m_priorityCallPreferCQTarget = false;
+    clearPounceState();
     m_beeped = false;
     if (m_zdebug) log("ZProcess: EXIT");
 }
@@ -14444,11 +14454,20 @@ void MainWindow::on_pb_WDReset_clicked() {
 }
 
 void MainWindow::resetAutoSwitch() {
-        ui->le_autoCallLeft->setText(QString::number(ui->sb_autoCallCount->value()));
-        ui->le_autoCQLeft->setText(QString::number(ui->sb_autoCQCount->value()));
-        m_priorityCall = QString();
-  m_priorityCallPreferCQTarget = false;
-  update_mode_switch_status_label ();
+    ui->le_autoCallLeft->setText(QString::number(ui->sb_autoCallCount->value()));
+    ui->le_autoCQLeft->setText(QString::number(ui->sb_autoCQCount->value()));
+    clearPounceState();
+    update_mode_switch_status_label ();
+}
+
+void MainWindow::clearPounceState()
+{
+    m_priorityCall = QString();
+    m_priorityCallPreferCQTarget = false;
+    m_prioGrid = QString();
+    m_nextRpt = QString();
+    m_prioTxFirst = false;
+    m_prioFreq = 0;
 }
 
 int MainWindow::watchdog() {
