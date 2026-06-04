@@ -14084,7 +14084,13 @@ void MainWindow::qrzResponseHandler(QNetworkReply * r) {
         if (!error.isEmpty()) {
             statusBar()->showMessage(tr("QRZ Lookup Failed: %1").arg(error), 5000);
         }
-        if (ui->ci_grid->text().length() > ui->dxGridEntry->text().length() && qrzPendingLookupCall == ui->dxCallEntry->text()) ui->dxGridEntry->setText(ui->ci_grid->text());
+        auto const currentGrid = ui->dxGridEntry->text();
+        auto const lookedUpGrid = ui->ci_grid->text();
+        if (lookedUpGrid.length() > currentGrid.length()
+            && qrzPendingLookupCall == ui->dxCallEntry->text()
+            && lookedUpGrid.startsWith(currentGrid)) {
+            ui->dxGridEntry->setText(lookedUpGrid);
+        }
         qrzPendingLookupCall = "";
         ci_gridLookup();
     }
