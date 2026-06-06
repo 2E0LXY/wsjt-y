@@ -26,6 +26,14 @@ if (POLICY CMP0075)
   cmake_policy (SET CMP0075 NEW) # honour CMAKE_REQUIRED_LIBRARIES in config checks
 endif ()
 
+if (POLICY CMP0167)
+  cmake_policy (SET CMP0167 OLD) # use legacy FindBoost module behavior
+endif ()
+
+if (POLICY CMP0074)
+  cmake_policy (SET CMP0074 NEW) # allow <PackageName>_ROOT variables for find_package
+endif ()
+
 include (Versions.cmake)
 project (wsjtx
   VERSION ${WSJTX_VERSION_MAJOR}.${WSJTX_VERSION_MINOR}.${WSJTX_VERSION_PATCH}.0
