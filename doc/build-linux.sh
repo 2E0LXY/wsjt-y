@@ -49,7 +49,6 @@ cmake -S . -B build -G Ninja \
   -DFFTW3_ROOT_DIR="/usr" \
   -DHamlib_ROOT="/usr" \
   -DUsb_ROOT="/usr" \
-  -DPortaudio_ROOT="/usr" \
   -DWSJT_SKIP_MANPAGES=ON \
   -DWSJT_GENERATE_DOCS=OFF \
   -DRIGCTL_EXE="$RIGCTL_BIN" \
