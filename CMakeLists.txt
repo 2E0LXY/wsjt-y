@@ -57,10 +57,6 @@ if (NOT PROJECT_ARCHITECTURE)
     set (PROJECT_ARCHITECTURE "$ENV{PROCESSOR_ARCHITECTURE}")
   endif ()
 endif ()
-message (STATUS "******************************************************")
-message (STATUS "Building for for: ${CMAKE_SYSTEM_NAME}-${PROJECT_ARCHITECTURE}")
-message (STATUS "******************************************************")
-
 include (set_build_type)
 # RC 0 or omitted is a development build, GA is a General Availability release build
 set_build_type (GA)
@@ -80,7 +76,10 @@ set (PROJECT_MANUAL_DIRECTORY_URL https://groups.io/g/WSJT-Z)
 set (PROJECT_SAMPLES_URL https://sourceforge.net/projects/wsjt/files/)
 #set (PROJECT_SAMPLES_UPLOAD_DEST frs.sourceforge.net:/home/frs/project/wsjt/)
 # WSJT-Z mod version suffix shown in UI and package metadata.
-set (VERSION_Z "2.0.15b")
+set (VERSION_Z "2.0.15b-70")
+message (STATUS "******************************************************")
+message (STATUS "Building ${PROJECT_BUNDLE_NAME} ${VERSION_Z} (base WSJT-X ${PROJECT_VERSION}) for ${CMAKE_SYSTEM_NAME}-${PROJECT_ARCHITECTURE}")
+message (STATUS "******************************************************")
 
 # make sure that the default configuration is a RELEASE
 if (NOT CMAKE_BUILD_TYPE)
