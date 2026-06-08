@@ -741,6 +741,7 @@ private:
   bool    m_infoMessageShown = false;
   bool    m_autoModeSwitch = false;
   bool    m_smartModeSwitch = false;
+  bool    m_autoCQAlternateEvenOddNext = false;
   QScopedPointer<UnfilteredView> m_unfilteredView;
   QScopedPointer<PSKReporterWidget> m_pskReporterView;
   QThread * m_pskReporterThread;

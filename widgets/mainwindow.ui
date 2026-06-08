@@ -3710,6 +3710,16 @@ list. The list can be maintained in Settings (F2).</string>
                           </widget>
                          </item>
                          <item>
+                          <widget class="QCheckBox" name="cbAutoCQAlternateEvenOdd">
+                           <property name="toolTip">
+                            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When Mode Switching is enabled, alternate TX even/odd at the start of each AutoCQ cycle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                           </property>
+                           <property name="text">
+                            <string>AutoCQ alternate even/odd</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item>
                           <spacer name="horizontalSpacer_8">
                            <property name="orientation">
                             <enum>Qt::Horizontal</enum>

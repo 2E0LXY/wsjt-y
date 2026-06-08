@@ -1604,6 +1604,7 @@ void MainWindow::writeSettings()
 
   // Misc tab
   m_settings->setValue ("autoModeSwitchEnabled", ui->cb_autoModeSwitch->isChecked());
+  m_settings->setValue ("autoCQAlternateEvenOdd", ui->cbAutoCQAlternateEvenOdd->isChecked());
   m_settings->setValue ("smartModeSwitchEnabled", m_smartModeSwitch);
   m_settings->setValue ("autoCQCount", ui->sb_autoCQCount->value ());
   m_settings->setValue ("autoCallCount", ui->sb_autoCallCount->value ());
@@ -1643,6 +1644,7 @@ void MainWindow::readSettings()
   ui->dxGridEntry->setText (m_settings->value ("DXgrid", QString {}).toString ());
   m_path = m_settings->value("MRUdir", m_config.save_directory ().absolutePath ()).toString ();
   m_txFirst = m_settings->value("TxFirst",false).toBool();
+  m_autoCQAlternateEvenOddNext = !m_txFirst;
   auto displayAstro = m_settings->value ("AstroDisplayed", false).toBool ();
   auto displayMsgAvg = m_settings->value ("MsgAvgDisplayed", false).toBool ();
   auto displayFoxLog = m_settings->value ("FoxLogDisplayed", false).toBool ();
@@ -1818,6 +1820,7 @@ void MainWindow::readSettings()
   ui->cb_filtering->setChecked(m_settings->value("filter_enabled", true).toBool());
   // Misc tab
   ui->cb_autoModeSwitch->setChecked(m_settings->value("autoModeSwitchEnabled", false).toBool());
+  ui->cbAutoCQAlternateEvenOdd->setChecked(m_settings->value("autoCQAlternateEvenOdd", false).toBool());
   m_smartModeSwitch = m_settings->value("smartModeSwitchEnabled", false).toBool();
   update_auto_mode_switch_widget ();
   ui->sb_autoCQCount->setValue(m_settings->value("autoCQCount", 5).toInt());
@@ -6762,6 +6765,7 @@ void MainWindow::ba2msg(QByteArray ba, char message[])             //ba2msg()
 void MainWindow::on_txFirstCheckBox_stateChanged(int nstate)        //TxFirst
 {
   m_txFirst = (nstate==2);
+  m_autoCQAlternateEvenOddNext = !m_txFirst;
 }
 
 void MainWindow::set_dateTimeQSO(int m_ntx)
@@ -13065,6 +13069,14 @@ void MainWindow::on_cbAutoCQ_toggled(bool b)
     if (b) {
         ui->cbAutoCall->setChecked(false);
         ui->cbAutoCall->setEnabled(false);
+        if (ui->cb_autoModeSwitch->isChecked() && ui->cbAutoCQAlternateEvenOdd->isChecked()) {
+          bool newTxFirst = !ui->txFirstCheckBox->isChecked();
+          ui->txFirstCheckBox->blockSignals(true);
+          ui->txFirstCheckBox->setChecked(newTxFirst);
+          ui->txFirstCheckBox->blockSignals(false);
+          m_txFirst = newTxFirst;
+          m_autoCQAlternateEvenOddNext = !newTxFirst;
+        }
         ui->cbFirst->setChecked(true);
         ui->cbAutoSeq->setChecked(true);
         ui->txrb6->setChecked(true);
@@ -14233,6 +14245,7 @@ void MainWindow::update_auto_mode_switch_widget()
   ui->cb_autoModeSwitch->setTitle (
       m_smartModeSwitch ? tr ("Smart Mode Switching") : tr ("Mode Switching"));
   ui->cb_autoModeSwitch->setStyleSheet ("");
+  ui->cbAutoCQAlternateEvenOdd->setEnabled(ui->cb_autoModeSwitch->isChecked());
 }
 
 void MainWindow::toggleBands() {
@@ -14449,6 +14462,15 @@ void MainWindow::ZProcess ()
                                     bool txf = !(fmod(periodTotal/m_TRperiod, 2) == 0);
                                     ui->txFirstCheckBox->setChecked(txf);
                             }
+                            ui->cbAutoCall->setEnabled(false);
+                            ui->cbFirst->setChecked(true);
+                            ui->cbAutoSeq->setChecked(true);
+                            ui->txrb6->setChecked(true);
+                            if (m_smartModeSwitch && ui->cb_autoModeSwitch->isChecked()) {
+                              ui->cbHoldTxFreq->setChecked(true);
+                            }
+                            resetAutoSwitch();
+                            if (!m_autoModeSwitch) clearDX();
                             if (m_zdebug) log("ZProcess: Switched to AutoCQ");
                         } else {
                             toggleBands();
