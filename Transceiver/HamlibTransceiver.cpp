@@ -21,6 +21,46 @@
 
 namespace
 {
+  inline vfo_t accumulate_vfo_list (freq_range_t const * ranges)
+  {
+    vfo_t result = RIG_VFO_NONE;
+    for (int index = 0; index < HAMLIB_FRQRANGESIZ && !RIG_IS_FRNG_END (ranges[index]); ++index)
+      {
+        result |= ranges[index].vfo;
+      }
+    return result;
+  }
+
+  inline vfo_t rig_vfo_list (RIG const * rig)
+  {
+    auto caps = rig ? rig->caps : nullptr;
+    if (!caps)
+      {
+        return RIG_VFO_NONE;
+      }
+
+    return accumulate_vfo_list (caps->rx_range_list1)
+      | accumulate_vfo_list (caps->tx_range_list1)
+      | accumulate_vfo_list (caps->rx_range_list2)
+      | accumulate_vfo_list (caps->tx_range_list2)
+      | accumulate_vfo_list (caps->rx_range_list3)
+      | accumulate_vfo_list (caps->tx_range_list3)
+      | accumulate_vfo_list (caps->rx_range_list4)
+      | accumulate_vfo_list (caps->tx_range_list4)
+      | accumulate_vfo_list (caps->rx_range_list5)
+      | accumulate_vfo_list (caps->tx_range_list5);
+  }
+
+  inline vfo_t rig_rx_vfo (RIG const * rig)
+  {
+    return rig_vfo_list (rig) & RIG_VFO_A ? RIG_VFO_A : RIG_VFO_MAIN;
+  }
+
+  inline vfo_t rig_tx_vfo (RIG const * rig)
+  {
+    return rig_vfo_list (rig) & RIG_VFO_B ? RIG_VFO_B : RIG_VFO_SUB;
+  }
+
   // Unfortunately bandwidth is conflated  with mode, this is probably
   // because Icom do  the same. So we have to  care about bandwidth if
   // we want  to set  mode otherwise we  will end up  setting unwanted
@@ -112,21 +152,13 @@ namespace
   class hamlib_tx_vfo_fixup final
   {
   public:
-    hamlib_tx_vfo_fixup (RIG * rig, vfo_t tx_vfo)
-      : rig_ {rig}
+    hamlib_tx_vfo_fixup (RIG *, vfo_t)
     {
-      original_vfo_ = rig_->state.tx_vfo;
-      rig_->state.tx_vfo = tx_vfo;
     }
 
     ~hamlib_tx_vfo_fixup ()
     {
-      rig_->state.tx_vfo = original_vfo_;
     }
-
-  private:
-    RIG * rig_;
-    vfo_t original_vfo_;
   };
 }
 
@@ -177,10 +209,11 @@ public:
 
   void error_check (int ret_code, QString const& doing) const;
   void set_conf (char const * item, char const * value);
-  QByteArray get_conf (char const * item);
+  QByteArray get_conf (char const * item) const;
   Transceiver::MODE map_mode (rmode_t) const;
   rmode_t map_mode (Transceiver::MODE mode) const;
   std::tuple<vfo_t, vfo_t> get_vfos (bool for_split) const;
+  bool ptt_enabled () const;
 
   HamlibTransceiver::logger_type mutable * logger_;
   unsigned model_;
@@ -287,13 +320,13 @@ std::tuple<vfo_t, vfo_t> HamlibTransceiver::impl::get_vfos (bool for_split) cons
       // support this way around
 
       CAT_TRACE ("rig_set_vfo VFO=A/MAIN");
-      error_check (rig_set_vfo (rig_.data (), rig_->state.vfo_list & RIG_VFO_A ? RIG_VFO_A : RIG_VFO_MAIN), tr ("setting current VFO"));
+      error_check (rig_set_vfo (rig_.data (), rig_rx_vfo (rig_.data ())), tr ("setting current VFO"));
     }
   // else only toggle available but VFOs should be substitutable 
 
-  auto rx_vfo = rig_->state.vfo_list & RIG_VFO_A ? RIG_VFO_A : RIG_VFO_MAIN;
+  auto rx_vfo = rig_rx_vfo (rig_.data ());
   auto tx_vfo = (WSJT_RIG_NONE_CAN_SPLIT || !is_dummy_) && for_split
-    ? (rig_->state.vfo_list & RIG_VFO_B ? RIG_VFO_B : RIG_VFO_SUB)
+    ? rig_tx_vfo (rig_.data ())
     : rx_vfo;
   if (reversed_)
     {
@@ -314,7 +347,7 @@ void HamlibTransceiver::impl::set_conf (char const * item, char const * value)
     }
 }
 
-QByteArray HamlibTransceiver::impl::get_conf (char const * item)
+QByteArray HamlibTransceiver::impl::get_conf (char const * item) const
 {
   token_t token = rig_token_lookup (rig_.data (), item);
   QByteArray value {128, '\0'};
@@ -343,6 +376,17 @@ QByteArray HamlibTransceiver::impl::get_conf (char const * item)
       #endif
     }
   return value;
+}
+
+bool HamlibTransceiver::impl::ptt_enabled () const
+{
+  auto const configured_ptt = get_conf ("ptt_type").trimmed ();
+  if (!configured_ptt.isEmpty ())
+    {
+      return 0 != qstricmp (configured_ptt.constData (), "None");
+    }
+
+  return RIG_PTT_NONE != rig_get_caps_int (model_, RIG_CAPS_PTT_TYPE);
 }
 
 auto HamlibTransceiver::impl::map_mode (rmode_t m) const -> MODE
@@ -666,7 +710,7 @@ int HamlibTransceiver::do_start ()
       m_->get_vfo_works_ = false;
       // determine if the rig uses single VFO addressing i.e. A/B and
       // no get_vfo function
-      if (m_->rig_->state.vfo_list & RIG_VFO_B)
+      if (rig_vfo_list (m_->rig_.data ()) & RIG_VFO_B)
         {
           m_->one_VFO_ = true;
         }
@@ -707,7 +751,7 @@ int HamlibTransceiver::do_start ()
           else
             {
               CAT_TRACE ("rig_set_vfo to other VFO");
-              rc = rig_set_vfo (m_->rig_.data (), m_->rig_->state.vfo_list & RIG_VFO_B ? RIG_VFO_B : RIG_VFO_SUB);
+              rc = rig_set_vfo (m_->rig_.data (), rig_tx_vfo (m_->rig_.data ()));
               if (-RIG_ENAVAIL == rc || -RIG_ENIMPL == rc)
                 {
                   // if we are talking to netrigctl then toggle VFO op
@@ -750,7 +794,7 @@ int HamlibTransceiver::do_start ()
               else
                 {
                   CAT_TRACE ("rig_set_vfo A/MAIN");
-                  m_->error_check (rig_set_vfo (m_->rig_.data (), m_->rig_->state.vfo_list & RIG_VFO_A ? RIG_VFO_A : RIG_VFO_MAIN), tr ("setting current VFO"));
+                  m_->error_check (rig_set_vfo (m_->rig_.data (), rig_rx_vfo (m_->rig_.data ())), tr ("setting current VFO"));
                 }
 
               if (f1 != f2 || m != mb || w != wb)	// we must have started with MAIN/A
@@ -909,7 +953,7 @@ void HamlibTransceiver::do_frequency (Frequency f, MODE m, bool no_ignore)
       // for the 1st time as a band change may cause a recalled mode to be
       // set
       vfo_t target_vfo = RIG_VFO_CURR;
-      if (!(m_->rig_->state.vfo_list & RIG_VFO_B))
+      if (!(rig_vfo_list (m_->rig_.data ()) & RIG_VFO_B))
         {
           target_vfo = RIG_VFO_MAIN; // no VFO A/B so force to Rx on MAIN
         }
@@ -1071,7 +1115,7 @@ void HamlibTransceiver::do_mode (MODE mode)
   auto new_mode = m_->map_mode (mode);
 
   vfo_t target_vfo = RIG_VFO_CURR;
-  if (!(m_->rig_->state.vfo_list & RIG_VFO_B))
+  if (!(rig_vfo_list (m_->rig_.data ()) & RIG_VFO_B))
     {
       target_vfo = RIG_VFO_MAIN; // no VFO A/B so force to Rx on MAIN
     }
@@ -1184,8 +1228,8 @@ void HamlibTransceiver::do_poll ()
           // the other one directly because we can't glitch the Rx
           m_->error_check (rig_get_freq (m_->rig_.data ()
                                          , m_->reversed_
-                                         ? (m_->rig_->state.vfo_list & RIG_VFO_A ? RIG_VFO_A : RIG_VFO_MAIN)
-                                         : (m_->rig_->state.vfo_list & RIG_VFO_B ? RIG_VFO_B : RIG_VFO_SUB)
+                                         ? rig_rx_vfo (m_->rig_.data ())
+                                         : rig_tx_vfo (m_->rig_.data ())
                                          , &f), tr ("getting other VFO frequency"));
           f = std::round (f);
           CAT_TRACE ("rig_get_freq other VFO=" << f);
@@ -1215,7 +1259,7 @@ void HamlibTransceiver::do_poll ()
         }
     }
 
-  if (RIG_PTT_NONE != m_->rig_->state.pttport.type.ptt && rig_get_function_ptr (m_->model_, RIG_FUNCTION_GET_PTT))
+  if (m_->ptt_enabled () && rig_get_function_ptr (m_->model_, RIG_FUNCTION_GET_PTT))
     {
       ptt_t p;
       auto rc = rig_get_ptt (m_->rig_.data (), RIG_VFO_CURR, &p);
@@ -1235,7 +1279,7 @@ void HamlibTransceiver::do_ptt (bool on)
   CAT_TRACE ("PTT: " << on << " " << state () << " reversed=" << m_->reversed_);
   if (on)
     {
-      if (RIG_PTT_NONE != m_->rig_->state.pttport.type.ptt)
+      if (m_->ptt_enabled ())
         {
           CAT_TRACE ("rig_set_ptt PTT=true");
           auto ptt_type = rig_get_caps_int (m_->model_, RIG_CAPS_PTT_TYPE);
@@ -1246,7 +1290,7 @@ void HamlibTransceiver::do_ptt (bool on)
     }
   else
     {
-      if (RIG_PTT_NONE != m_->rig_->state.pttport.type.ptt)
+      if (m_->ptt_enabled ())
         {
           CAT_TRACE ("rig_set_ptt PTT=false");
           m_->error_check (rig_set_ptt (m_->rig_.data (), RIG_VFO_CURR, RIG_PTT_OFF), tr ("setting PTT off"));
