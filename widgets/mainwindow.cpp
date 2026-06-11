@@ -1732,6 +1732,26 @@ void MainWindow::readSettings()
   ui->actionHide_AP_info->setChecked(m_settings->value("HideAPInfo", false).toBool());
   ui->actionNo_MTD_a8_decodes->setChecked(m_settings->value("NoMTDa8Decodes", false).toBool());
   ui->actionFull_Duplex_Mode->setChecked(m_settings->value("FullDuplexMode", false).toBool());
+  if (m_zdebug) {
+    log(QString("Startup config: UseMultithreadedFT8=%1 FT8threads=%2 FT8Sensitivity=%3 FT8DecoderStart=%4 FT8RXfreqSens=%5 FT8Cycles=%6 FT8WideDXCallSearch=%7 HideFT8Dupes=%8 ReduceFalseDecodes=%9 SkipA8Decodes=%10")
+          .arg(ui->actionUse_multithreaded_FT8_decoder->isChecked())
+          .arg(m_ft8threads)
+          .arg(m_ft8Sensitivity)
+          .arg(m_ft8DecoderStart)
+          .arg(m_nFT8RXfSens)
+          .arg(m_nFT8Cycles)
+          .arg(m_FT8WideDxCallSearch)
+          .arg(ui->actionHide_FT8_dupe_messages->isChecked())
+          .arg(ui->actionReduce_false_decodes->isChecked())
+          .arg(ui->actionNo_MTD_a8_decodes->isChecked()));
+    log(QString("Startup platform: OS=%1 type=%2 version=%3 arch=%4 wordSize=%5 kernel=%6")
+          .arg(QSysInfo::prettyProductName())
+          .arg(QSysInfo::productType())
+          .arg(QSysInfo::productVersion())
+          .arg(QSysInfo::currentCpuArchitecture())
+          .arg(QSysInfo::WordSize)
+          .arg(QSysInfo::kernelVersion()));
+  }
   m_settings->endGroup();
 
   // Reflect current m_ft8threads in the radio menu
