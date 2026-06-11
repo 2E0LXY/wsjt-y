@@ -293,6 +293,9 @@ set (wsjtx_CXXSRCS
   widgets/astro.cpp
   widgets/messageaveraging.cpp
   widgets/activeStations.cpp
+  widgets/QSYMessage.cpp
+  widgets/QSYMessageCreator.cpp
+  widgets/qsymonitor.cpp
   widgets/colorhighlighting.cpp
   WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
@@ -777,6 +780,9 @@ set (wsjtx_UISRCS
   widgets/activeStations.ui
   widgets/widegraph.ui
   widgets/logqso.ui
+  widgets/QSYMessage.ui
+  widgets/QSYMessageCreator.ui
+  widgets/qsymonitor.ui
   Configuration.ui
   widgets/ExportCabrillo.ui
   widgets/unfilteredview.ui
