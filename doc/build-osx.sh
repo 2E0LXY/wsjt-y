@@ -83,7 +83,6 @@ cmake -S . -B build -G Ninja \
   -DFFTW3_ROOT_DIR="$(brew --prefix fftw)" \
   -DHamlib_ROOT="$(brew --prefix hamlib)" \
   -DUsb_ROOT="$(brew --prefix libusb)" \
-  -DPortaudio_ROOT="$(brew --prefix portaudio)" \
   -DWSJT_SKIP_MANPAGES=ON \
   -DWSJT_GENERATE_DOCS=OFF \
   -DCMAKE_INSTALL_PREFIX="$PWD/stage"

@@ -1,22 +1,4 @@
 cmake_minimum_required (VERSION 3.7.2 FATAL_ERROR)
-
-if (APPLE)
-  #
-  # The following variables define the portability and compatability attributes of the Mac macOS build
-  # they are choosen with care and should not be changed without good cause.
-  #
-  # Among other things these options are chosen to match the portability and compatability options of the
-  # Qt framework dylibs which can be checked as follows:
-  #
-  # otool -l <binary> | grep -A3 LC_VERSION_MIN_MACOSX
-  #
-  set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12
-    CACHE STRING "Earliest version of macOS supported
-
-Earliest version we can support with Qt 5.12, C++11 & libc++ is 10.12.
-Do not override this if you intend to build an official deployable installer.")
-endif (APPLE)
-
 #
 # CMake policies
 #
@@ -44,6 +26,14 @@ if (POLICY CMP0075)
   cmake_policy (SET CMP0075 NEW) # honour CMAKE_REQUIRED_LIBRARIES in config checks
 endif ()
 
+if (POLICY CMP0167)
+  cmake_policy (SET CMP0167 OLD) # use legacy FindBoost module behavior
+endif ()
+
+if (POLICY CMP0074)
+  cmake_policy (SET CMP0074 NEW) # allow <PackageName>_ROOT variables for find_package
+endif ()
+
 include (Versions.cmake)
 project (wsjtx
   VERSION ${WSJTX_VERSION_MAJOR}.${WSJTX_VERSION_MINOR}.${WSJTX_VERSION_PATCH}.0
@@ -67,10 +57,6 @@ if (NOT PROJECT_ARCHITECTURE)
     set (PROJECT_ARCHITECTURE "$ENV{PROCESSOR_ARCHITECTURE}")
   endif ()
 endif ()
-message (STATUS "******************************************************")
-message (STATUS "Building for for: ${CMAKE_SYSTEM_NAME}-${PROJECT_ARCHITECTURE}")
-message (STATUS "******************************************************")
-
 include (set_build_type)
 # RC 0 or omitted is a development build, GA is a General Availability release build
 set_build_type (GA)
@@ -90,7 +76,10 @@ set (PROJECT_MANUAL_DIRECTORY_URL https://groups.io/g/WSJT-Z)
 set (PROJECT_SAMPLES_URL https://sourceforge.net/projects/wsjt/files/)
 #set (PROJECT_SAMPLES_UPLOAD_DEST frs.sourceforge.net:/home/frs/project/wsjt/)
 # WSJT-Z mod version suffix shown in UI and package metadata.
-set (VERSION_Z "2.0.14")
+set (VERSION_Z "2.0.15b-71")
+message (STATUS "******************************************************")
+message (STATUS "Building ${PROJECT_BUNDLE_NAME} ${VERSION_Z} (base WSJT-X ${PROJECT_VERSION}) for ${CMAKE_SYSTEM_NAME}-${PROJECT_ARCHITECTURE}")
+message (STATUS "******************************************************")
 
 # make sure that the default configuration is a RELEASE
 if (NOT CMAKE_BUILD_TYPE)
@@ -143,6 +132,15 @@ if you want a console application instead then set this option to OFF.
 If you just want to see the debug output from the application then the easiest way is to
 attach a debugger which will then receive the console output inside its console." ON
   "WIN32" OFF)
+
+if (APPLE)
+  # otool -l <binary> | grep -A3 LC_VERSION_MIN_MACOSX
+  set (CMAKE_OSX_DEPLOYMENT_TARGET 10.12
+    CACHE STRING "Earliest version of macOS supported
+
+Earliest version we can support with Qt 5.12, C++11 & libc++ is 10.12.
+Do not override this if you intend to build an official deployable installer.")
+endif (APPLE)
 
 #
 # install locations
