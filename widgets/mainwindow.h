@@ -372,6 +372,7 @@ private slots:
   void queueActiveWindowHound2(QString text);
 	// Z
     void pskTableClicked(QString,  QString);
+    void pskReporterReportsUpdated(QStringList const& receiver_callsigns);
     void logSlots();
     void execCmd(QString cmd);
     bool setFreeFreq();
@@ -760,6 +761,7 @@ private:
   bool    m_autoCQAlternateEvenOddNext = false;
   QScopedPointer<UnfilteredView> m_unfilteredView;
   QScopedPointer<PSKReporterWidget> m_pskReporterView;
+  QSet<QString> m_pskReporterReceivers;
   QThread * m_pskReporterThread;
   QDateTime m_ignoreListReset;
   qint64 m_msTxFirst;

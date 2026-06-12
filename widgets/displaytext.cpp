@@ -150,11 +150,11 @@ namespace
 }
 
 void DisplayText::insertText(QString const& text, QColor bg, QColor fg
-                             , QString const& call1, QString const& call2, QTextCursor::MoveOperation location)
+                             , QString const& call1, QString const& call2, QTextCursor::MoveOperation location, bool psk_highlight)
 {
 
     if (m_freezeUpdates) {
-        m_updateBuffer.append({text, bg, fg, call1, call2, location});
+        m_updateBuffer.append({text, bg, fg, call1, call2, location, psk_highlight});
         return;
     }
 
@@ -163,6 +163,9 @@ void DisplayText::insertText(QString const& text, QColor bg, QColor fg
   auto block_format = cursor.blockFormat ();
   auto format = cursor.blockCharFormat ();
   format.setFont (char_font_);
+  if (psk_highlight) {
+    format.setFontUnderline (true);
+  }
   block_format.clearBackground ();
   if (bg.isValid ())
     {
@@ -631,6 +634,79 @@ void DisplayText::setHighlightedHoundText(QString t) {
   }
 }
 
+namespace {
+  QString get_timestamp(QTextCursor& cursor);
+
+  bool is_transmitting_call(QString const& line, QString const& callsign)
+  {
+      if (line.isEmpty() || callsign.isEmpty())
+        return false;
+
+      DecodedText decoded {line};
+      return decoded.transmittingCall().toUpper() == callsign.toUpper();
+  }
+}
+
+void DisplayText::highlight_callsign_line (QString const& callsign, QColor const& bg,
+                                           QColor const& fg, bool last_period_only, bool psk_highlight)
+{
+  if (!callsign.size ())
+    {
+      return;
+    }
+  if (callsign == "CLEARALL!")
+    {
+      return;
+    }
+  auto regexp = callsign;
+  QRegularExpression target {QString {"<?"}
+                             + regexp.replace (QLatin1Char {'+'}, QLatin1String {"\\+"})
+                                 .replace (QLatin1Char {'.'}, QLatin1String {"\\."})
+                                 .replace (QLatin1Char {'?'}, QLatin1String {"\\?"})
+                             + QString {">?"}
+                             , QRegularExpression::DontCaptureOption};
+  QTextCursor cursor {document ()};
+  if (last_period_only)
+    {
+      cursor.movePosition (QTextCursor::End);
+      QTextCursor period_start {cursor};
+      QTextCursor prior {cursor};
+      auto period_timestamp = get_timestamp (period_start);
+      while (period_timestamp.size () && period_timestamp == get_timestamp (prior))
+        {
+          period_start = prior;
+        }
+      cursor = period_start;
+    }
+  while (!cursor.isNull ())
+    {
+      cursor = document ()->find (target, cursor, QTextDocument::FindWholeWords);
+      if (!cursor.isNull () && cursor.hasSelection ())
+        {
+          cursor.select (QTextCursor::LineUnderCursor);
+          auto format = cursor.charFormat ();
+          if (bg.isValid ())
+            format.setBackground (bg);
+          else
+            format.clearBackground ();
+          if (fg.isValid ())
+            format.setForeground (fg);
+          else
+            format.clearForeground ();
+          bool lineHighlight = psk_highlight && is_transmitting_call(cursor.selectedText(), callsign);
+          if (m_config && m_config->decoded_text_psk_highlight())
+            {
+              format.setFontUnderline (lineHighlight);
+            }
+          else
+            {
+              format.setFontWeight (lineHighlight ? QFont::Bold : QFont::Normal);
+            }
+          cursor.mergeCharFormat (format);
+        }
+    }
+}
+
 namespace
 {
   void update_selection (QTextCursor& cursor, QColor const& bg, QColor const& fg)
@@ -783,10 +859,11 @@ void DisplayText::flushUpdates() {
         QColor bg, fg;
         QString call1, call2;
         QTextCursor::MoveOperation location;
+        bool psk_highlight;
 
-        std::tie(text, bg, fg, call1, call2, location) = update;
+        std::tie(text, bg, fg, call1, call2, location, psk_highlight) = update;
 
-        insertText(text, bg, fg, call1, call2, location);
+        insertText(text, bg, fg, call1, call2, location, psk_highlight);
     }
     m_updateBuffer.clear();
 }

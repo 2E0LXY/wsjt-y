@@ -37,6 +37,9 @@ PSKReporterWidget::PSKReporterWidget(QWidget *parent, Configuration * cfg, LogBo
     connect(timer, SIGNAL(timeout()), this, SLOT(refresh()));
     timer->start(5 * 60 * 1000);
 
+    connect(networkManager, &QNetworkAccessManager::finished,
+            this, &PSKReporterWidget::responseHandler);
+
     refresh(true);
 }
 
@@ -47,20 +50,17 @@ PSKReporterWidget::~PSKReporterWidget()
 }
 
 void PSKReporterWidget::refresh(bool init) {
-    if (!init && !this->isVisible()) return;
-
+    Q_UNUSED(init);
     QUrlQuery query;
     query.addQueryItem("flowStartSeconds", "-3600");
     query.addQueryItem("callsign", m_config->my_callsign());
     QUrl url("https://www.pskreporter.info/cgi-bin/pskquery5.pl");
     url.setQuery(query);
     QNetworkRequest networkRequest(url);
-    connect(networkManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(responseHandler(QNetworkReply*)));
     networkManager->get(networkRequest);
 }
 
 void PSKReporterWidget::responseHandler(QNetworkReply * reply) {
-    disconnect(networkManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(responseHandler(QNetworkReply*)));
     if(reply->error() == QNetworkReply::NoError) {
        QString data = (QString)reply->readAll();
        if (data.length()) updateTable(data);
@@ -77,12 +77,16 @@ void PSKReporterWidget::responseHandler(QNetworkReply * reply) {
 void PSKReporterWidget::updateTable(QString data) {
     ui->pskTable->setRowCount(0);
     ui->pskTable->setSortingEnabled(false);
+    QStringList receiver_records;
     QXmlStreamReader reader(data);
     while(!reader.hasError() && !reader.atEnd()) {
         if(reader.readNext() == QXmlStreamReader::StartElement) {
             if ( reader.name() == "receptionReport") {
                 QString callsign = reader.attributes().value("receiverCallsign").toString();
                 if (callsign == m_config->my_callsign()) continue;
+                QString mode = reader.attributes().value("mode").toString().toUpper();
+                QString frequency = reader.attributes().value("frequency").toString();
+                receiver_records.append(QStringLiteral("%1|%2|%3").arg(callsign.toUpper(), mode, frequency));
                 int r = 0;
                 ui->pskTable->insertRow(r);
                 QString time = QDateTime::fromTime_t(reader.attributes().value("flowStartSeconds").toUInt()).toUTC().toString("hh:mm:ss");
@@ -135,6 +139,7 @@ void PSKReporterWidget::updateTable(QString data) {
         }
     }
 
+    emit reportsUpdated(receiver_records);
     QTimer::singleShot (0, this, SLOT (scrollToBottom()));
 
 }
