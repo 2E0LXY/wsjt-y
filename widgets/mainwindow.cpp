@@ -1453,18 +1453,23 @@ void MainWindow::on_the_minute ()
       m_idleMinutes = qMin (wd_limit, elapsed_seconds / 60.0);
     }
     update_watchdog_label ();
-  } else {
-    // If WD is not enabled, reset the anchor and idle time, and update the label if we were previously in WD mode.
-    m_watchdogAnchorUtc = now_utc;
-    m_idleMinutes = 0.0;
-    if (m_tx_watchdog) tx_watchdog (false);
-    else update_watchdog_label ();
+    } else {
+      // If WD is not enabled, reset the anchor and idle time, and update the label if we were previously in WD mode.
+      m_watchdogAnchorUtc = now_utc;
+      m_idleMinutes = 0.0;
+      if (m_tx_watchdog) tx_watchdog (false);
+      update_watchdog_label ();
+    }
+    update_foxLogWindow_rate(); // update the rate on the window
+    if (ui->labDXped->isVisible()) {
+      if (!verified || !ui->labDXped->text().contains("Hound")) {
+        ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
+      } else {
+        ui->labDXped->setStyleSheet("");
+      }
+    }
+    verified = false;
   }
-  update_foxLogWindow_rate(); // update the rate on the window
-  if ((!verified && ui->labDXped->isVisible()) || !ui->labDXped->text().contains("Hound"))
-    ui->labDXped->setStyleSheet("QLabel {background-color: red; color: white;}");
-  verified = false;
-}
 
 //--------------------------------------------------- MainWindow destructor
 MainWindow::~MainWindow()
