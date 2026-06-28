@@ -37,6 +37,7 @@ jobs:
             mingw-w64-x86_64-libusb
             mingw-w64-x86_64-portaudio
             mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-readline
             mingw-w64-x86_64-nsis
             autoconf
             automake
@@ -52,8 +53,7 @@ jobs:
             --prefix=/mingw64 \
             --disable-static \
             --without-cxx-binding \
-            --disable-winradio \
-            --disable-readline
+            --disable-winradio
           make -j$(nproc)
           make install
 
