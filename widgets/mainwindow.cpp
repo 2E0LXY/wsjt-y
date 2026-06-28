@@ -6163,10 +6163,11 @@ void MainWindow::auto_sequence (DecodedText const& message, unsigned start_toler
     bool const directed_with_selected_dx = selected_dx_is_sender || selected_dx_is_target;
     bool const directed_to_me = sender_is_me || target_is_me;
 
-    // Z TODO: This is inccorect - fix !m_config.superFox() && (SpecOp::HOUND != m_specOp)
-    bool const auto_qrm_guard_state = m_QSOProgress == CALLING
-                      || m_QSOProgress == REPLYING
-                      || (!ui->tx1->isEnabled () && m_QSOProgress == REPORT);
+    // Z fix: exclude Fox mode from QRM-stop guard (was missing per original TODO)
+    bool const auto_qrm_guard_state = !m_config.superFox ()
+                      && (m_QSOProgress == CALLING
+                          || m_QSOProgress == REPLYING
+                          || (!ui->tx1->isEnabled () && m_QSOProgress == REPORT));
     bool const qrm_stop_window_match = m_QSOProgress == CALLING
       || qAbs (ui->TxFreqSpinBox->value () - df) <= int (stop_tolerance);
     if (m_auto

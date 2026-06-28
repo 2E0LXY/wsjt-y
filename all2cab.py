@@ -31,13 +31,13 @@ def isGrid(g):
     return True
 
 if len(sys.argv)!=4:
-    print "Usage:   python all2cab.py <mycall> <mygrid> <infile>"
-    print "Example: python all2cab.py K1JT FN20 all_wwdigi_2019.txt"
+    print("Usage:   python all2cab.py <mycall> <mygrid> <infile>")
+    print("Example: python all2cab.py K1JT FN20 all_wwdigi_2019.txt")
     exit()
 
 f=open(sys.argv[3],mode='r')
 ss=f.readlines()
-f.close
+f.close()
 dt0=datetime.strptime(ss[0][0:13],"%y%m%d_%H%M%S")
 iz=len(ss)
 nqso=0
@@ -121,5 +121,5 @@ for i in range(iz):
             Staged[hiscall_band]=buf              #Staged for logging
             nqso=nqso+1
             TimeLogged[hiscall_band]=T0[hiscall]
-            print buf                             #For now, log anything staged
+            print(buf)                            #For now, log anything staged
             del QSOinProgress[hiscall_band]

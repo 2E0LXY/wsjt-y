@@ -82,9 +82,12 @@ class QtDataStreamReader:
         raw = self.read_qbytearray()
         return None if raw is None else raw.hex()
 
+    # Qt serialises a null QDate as std::numeric_limits<qint64>::min()
+    _QDate_NULL_JD = -(2**63)
+
     def read_qdate(self):
         julian_day = self.read_int64()
-        if julian_day == -1:
+        if julian_day == self._QDate_NULL_JD:
             return None
         j = julian_day + 68569
         n = (4 * j) // 146097
@@ -138,7 +141,7 @@ def format_qtime(qtime):
 try:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((mcast_group, mcast_port))
+    sock.bind(('', mcast_port))             # INADDR_ANY — portable multicast receive
     print("Socket bound to", (mcast_group, mcast_port))
 
     mreq = socket.inet_aton(mcast_group) + socket.inet_aton('0.0.0.0')
