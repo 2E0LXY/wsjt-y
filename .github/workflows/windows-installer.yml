@@ -42,17 +42,18 @@ jobs:
             libtool
             make
 
-      # GCC 15/16 generates .tls_common directives that MinGW binutils rejects
-      # for Fortran COMMON blocks compiled with OpenMP. Pin to 14.2.0-3 which
-      # does not have this issue (same fix as 2E0LXY/wsjt-z-ii).
-      - name: Pin gcc/gcc-fortran to 14.2.0-3 (avoid .tls_common GCC 15+ bug)
+      # GCC 15 generates .tls_common pseudo-ops that MinGW binutils rejects for
+      # Fortran COMMON+OpenMP. Downgrade only the compiler binaries; keep gcc-libs
+      # 15.x runtime so other packages still work. --nodeps bypasses the cc-libs
+      # metadata split introduced in GCC 15 MSYS2 packaging.
+      - name: Pin gcc/gcc-fortran compilers to 14.2.0-3 (avoid .tls_common bug)
         run: |
           BASE="https://repo.msys2.org/mingw/mingw64"
-          pacman -U --noconfirm --needed \
-            "${BASE}/mingw-w64-x86_64-gcc-libs-14.2.0-3-any.pkg.tar.zst" \
+          pacman -U --noconfirm --nodeps \
             "${BASE}/mingw-w64-x86_64-gcc-14.2.0-3-any.pkg.tar.zst" \
             "${BASE}/mingw-w64-x86_64-gcc-fortran-14.2.0-3-any.pkg.tar.zst"
           gfortran --version | head -1
+          gcc --version | head -1
 
       - name: Build and install Hamlib 4.5.5 from source
         run: |
