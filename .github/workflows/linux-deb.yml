@@ -25,7 +25,7 @@ jobs:
             libqt5sql5-sqlite libqt5svg5-dev \
             libfftw3-dev \
             libboost-log-dev libboost-thread-dev \
-            libhamlib-dev \
+            libhamlib-dev libhamlib-utils \
             libusb-1.0-0-dev libudev-dev \
             libportaudio-dev portaudio19-dev \
             asciidoctor libxml2-utils \
