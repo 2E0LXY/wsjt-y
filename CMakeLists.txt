@@ -67,10 +67,10 @@ set (wsjtx_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_
 #
 ## // Z
 set (PROJECT_BUNDLE_NAME "WSJT-Z")
-set (PROJECT_VENDOR "SQ9FVE")
-set (PROJECT_CONTACT "SQ9FVE")
+set (PROJECT_VENDOR "2E0LXY")
+set (PROJECT_CONTACT "2E0LXY")
 set (PROJECT_COPYRIGHT "Copyright (C) 2001-2026 by SQ9FVE")
-set (PROJECT_HOMEPAGE https://groups.io/g/WSJT-Z)
+set (PROJECT_HOMEPAGE https://github.com/2E0LXY/wsjt-z)
 set (PROJECT_MANUAL wsjtx-main)
 set (PROJECT_MANUAL_DIRECTORY_URL https://groups.io/g/WSJT-Z)
 set (PROJECT_SAMPLES_URL https://sourceforge.net/projects/wsjt/files/)

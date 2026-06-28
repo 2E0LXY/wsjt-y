@@ -1,0 +1,82 @@
+name: Windows installer build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gcc-fortran
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-qt5-base
+            mingw-w64-x86_64-qt5-multimedia
+            mingw-w64-x86_64-qt5-serialport
+            mingw-w64-x86_64-qt5-websockets
+            mingw-w64-x86_64-qt5-svg
+            mingw-w64-x86_64-qt5-tools
+            mingw-w64-x86_64-fftw
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-libusb
+            mingw-w64-x86_64-portaudio
+            mingw-w64-x86_64-hamlib
+            mingw-w64-x86_64-nsis
+            mingw-w64-x86_64-openssl
+
+      - name: Configure (CMake / MSYS2 MinGW64)
+        run: |
+          mkdir build && cd build
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/mingw64 \
+            -DWSJT_SKIP_MANPAGES=ON \
+            -DWSJT_GENERATE_DOCS=OFF \
+            ..
+
+      - name: Build
+        run: |
+          cd build
+          ninja -j$(nproc)
+
+      - name: Package (NSIS installer)
+        run: |
+          cd build
+          cpack -G NSIS
+          ls -lh *.exe
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wsjt-z-windows-installer
+          path: build/*.exe
+          retention-days: 30
+
+      - name: Create GitHub Release and upload installer
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/*.exe
+          generate_release_notes: false
+          body: |
+            WSJT-Z ${{ github.ref_name }} — Windows installer
+
+            Built with MinGW-w64 / MSYS2 (64-bit).
+
+            Install: run the .exe installer, default path `C:\WSJT\wsjtx`.
