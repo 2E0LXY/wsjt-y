@@ -8,7 +8,7 @@
 #include "HRDTransceiver.hpp"
 #include "EmulateSplitTransceiver.hpp"
 
-#if defined (WIN32)
+#if defined (WIN32) && !defined (WSJT_NO_OMNIRIG)
 #include "OmniRigTransceiver.hpp"
 #endif
 
@@ -29,8 +29,10 @@ namespace
       , TCI2Id
       , CommanderId
       , HRDId
+#if !defined (WSJT_NO_OMNIRIG)
       , OmniRigOneId
       , OmniRigTwoId
+#endif
     };
 }
 
@@ -42,7 +44,7 @@ TransceiverFactory::TransceiverFactory ()
   DXLabSuiteCommanderTransceiver::register_transceivers (&logger_, &transceivers_, CommanderId);
   HRDTransceiver::register_transceivers (&logger_, &transceivers_, HRDId);
   
-#if defined (WIN32)
+#if defined (WIN32) && !defined (WSJT_NO_OMNIRIG)
   // OmniRig is ActiveX/COM server so only on Windows
   OmniRigTransceiver::register_transceivers (&logger_, &transceivers_, OmniRigOneId, OmniRigTwoId);
 #endif

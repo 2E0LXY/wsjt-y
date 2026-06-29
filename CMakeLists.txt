@@ -1522,6 +1522,13 @@ target_link_libraries (qcp Qt5::Widgets Qt5::PrintSupport)
 add_library (wsjt_qt STATIC ${wsjt_qt_CXXSRCS} ${wsjt_qt_GENUISRCS} ${GENAXSRCS})
 # set wsjtx_udp exports to static variants
 target_compile_definitions (wsjt_qt PUBLIC UDP_STATIC_DEFINE)
+
+# When OmniRig support is disabled, define WSJT_NO_OMNIRIG so source-level
+# #ifdef guards can exclude OmniRig.h (which is only generated when OmniRig
+# is enabled via qaxcontainer).
+if (WIN32 AND NOT WSJT_WITH_OMNIRIG)
+  target_compile_definitions (wsjt_qt PRIVATE WSJT_NO_OMNIRIG)
+endif ()
 target_link_libraries (wsjt_qt Hamlib::Hamlib Boost::log qcp Qt5::Widgets Qt5::Network Qt5::Sql Qt5::WebSockets)
 if (WIN32 AND WSJT_WITH_OMNIRIG)
   target_link_libraries (wsjt_qt Qt5::AxContainer Qt5::AxBase)
