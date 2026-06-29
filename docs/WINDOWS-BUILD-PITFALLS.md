@@ -136,22 +136,26 @@ The result: `wsjtx.exe` was compiled with GCC 14 and references the GCC 14
 ABI symbol `__emutls_v_ZSt11__once_call`, but the installer shipped the GCC
 15 `libstdc++-6.dll` which no longer exports that symbol under the same name.
 
-**Fix:** Downgrade `gcc-libs` **in the same pacman command** as `gcc` and
-`gcc-fortran`:
+**Fix:** Do NOT attempt `pacman -U gcc-libs` — modern MSYS2 renamed the provides to `cc-libs` and every installed package depends on it, causing a chain of conflicts. Instead, **overwrite the DLL files in `/mingw64/bin/` directly via tar**, bypassing the pacman database:
 
 ```bash
 BASE=https://repo.msys2.org/mingw/mingw64
-pacman -U --noconfirm --nodeps \
-  "${BASE}/mingw-w64-x86_64-gcc-libs-14.2.0-3-any.pkg.tar.zst" \
-  "${BASE}/mingw-w64-x86_64-gcc-14.2.0-3-any.pkg.tar.zst" \
-  "${BASE}/mingw-w64-x86_64-gcc-fortran-14.2.0-3-any.pkg.tar.zst"
+curl -sL "${BASE}/mingw-w64-x86_64-gcc-libs-14.2.0-3-any.pkg.tar.zst" \
+  | zstd -dc | tar --overwrite -x -C / \
+      mingw64/bin/libstdc++-6.dll \
+      mingw64/bin/libgcc_s_seh-1.dll \
+      mingw64/bin/libgomp-1.dll \
+      mingw64/bin/libquadmath-0.dll \
+      mingw64/bin/libatomic-1.dll
 ```
 
-`gcc-libs` contains `libgfortran-5.dll` and `libgomp-1.dll` as well — one
-package covers all GCC runtime DLLs.
+`fixup_bundle` (from `bundle_fixup/CMakeLists.txt`) searches `/mingw64/bin/` during `cmake --install` to collect DLLs for the NSIS installer. After this step, it will pick up GCC 14's `libstdc++-6.dll` instead of GCC 15's, eliminating the ABI mismatch.
 
-**Rule:** All four GCC components must always be pinned together:
-`gcc-libs`, `gcc`, `gcc-fortran`, and — if used — `gcc-ada`, `gcc-objc`.
+**`libgfortran-5.dll`** is not in `gcc-libs` — it comes from `cc-libs` (GCC 15). If the Fortran runtime DLL mismatch becomes an issue, add `-static-libgfortran` to `CMAKE_EXE_LINKER_FLAGS` in CMakeLists.txt for WIN32 builds.
+
+**Rule:** All four GCC components must be handled together — but via different mechanisms:
+- `gcc` + `gcc-fortran`: `pacman -U --nodeps` (safe, no reverse deps)
+- `gcc-libs` DLLs: direct tar overwrite of `/mingw64/bin/` (bypasses cc-libs conflict)
 
 ---
 
