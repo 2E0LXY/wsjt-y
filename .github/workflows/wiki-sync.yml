@@ -1,0 +1,35 @@
+name: Sync wiki
+
+on:
+  push:
+    branches: [master]
+    paths: ['wiki/**']
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push wiki pages to GitHub wiki
+        run: |
+          git config --global user.email "2e0lxy@aprsnet.uk"
+          git config --global user.name "2E0LXY"
+
+          git clone \
+            "https://2E0LXY:${{ secrets.GITHUB_TOKEN }}@github.com/2E0LXY/wsjt-zii.wiki.git" \
+            /tmp/wiki-repo
+
+          cp wiki/*.md /tmp/wiki-repo/
+
+          cd /tmp/wiki-repo
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wiki changes to push"
+            exit 0
+          fi
+          git commit -m "Sync wiki from source repo [$(git -C $GITHUB_WORKSPACE rev-parse --short HEAD)]"
+          git push origin master
