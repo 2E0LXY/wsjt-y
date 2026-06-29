@@ -173,7 +173,47 @@ curl -sL "${BASE}/mingw-w64-x86_64-gcc-libs-14.2.0-3-any.pkg.tar.zst" \
 
 **Rule:**
 - `gcc` + `gcc-fortran`: `pacman -U --nodeps` (safe — no reverse deps)
-- `gcc-libs` DLLs: isolated directory + `GCC_RUNTIME_OVERRIDE_DIR` CMake flag
+- `gcc-libs` DLLs: **do not attempt to inject** — see Pitfall 5c
+
+---
+
+## Pitfall 5c — Second DLL ABI crash: `_ZSt15__get_once_callv` not found in `libicuuc78.dll`
+
+**Symptom:** At the end of the NSIS installer, or on first launch:
+```
+wsjtx.exe — Entry Point Not Found
+The procedure entry point _ZSt15__get_once_callv could not be located
+in the dynamic link library C:\WSJT\wsjtx\bin\libicuuc78.dll
+```
+
+**Root cause:** This is the inverse of Pitfall 5b. `libicuuc78.dll` is Qt's ICU
+library, compiled by MSYS2 with GCC 16. GCC 16's `libicuuc78.dll` imports
+`_ZSt15__get_once_callv` (`std::__get_once_call()`) from `libstdc++-6.dll`.
+If we replaced `libstdc++-6.dll` with GCC 14's version (Pitfall 5b fix),
+that GCC 14 DLL does not export `_ZSt15__get_once_callv` → ICU crashes.
+
+**The catch-22:** Using GCC 14 libstdc++ satisfies wsjtx.exe but breaks ICU.
+Using GCC 16 libstdc++ satisfies ICU but breaks wsjtx.exe. There is no single
+shared `libstdc++-6.dll` that satisfies both.
+
+**Definitive fix: statically link the GCC runtime into the executables.**
+
+Add to `CMakeLists.txt`:
+```cmake
+if (WIN32 AND MINGW)
+  set (CMAKE_EXE_LINKER_FLAGS
+       "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static-libgfortran")
+endif ()
+```
+
+This bakes GCC 14's `libstdc++`, `libgcc`, and `libgfortran` directly into each
+`.exe`. The executables no longer import from `libstdc++-6.dll` at all. The MSYS2
+packages (Qt, ICU, Boost) continue to use GCC 16's shared `libstdc++-6.dll`
+without conflict — each side has its own copy of the runtime.
+
+**Consequence:** Each `.exe` is ~3–5 MB larger. No `libstdc++-6.dll`,
+`libgcc_s_seh-1.dll`, or `libgfortran-5.dll` need to be bundled in the
+installer at all.
 
 ---
 

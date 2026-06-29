@@ -59,22 +59,6 @@ jobs:
             "${BASE}/mingw-w64-x86_64-gcc-14.2.0-3-any.pkg.tar.zst" \
             "${BASE}/mingw-w64-x86_64-gcc-fortran-14.2.0-3-any.pkg.tar.zst"
 
-          # Extract GCC 14 runtime DLLs to an isolated directory.
-          # Do NOT overwrite /mingw64/bin/ — other tools (cmake, ninja) are
-          # built against GCC 16 and would break. Instead, pass the path to
-          # CMake via -DGCC_RUNTIME_OVERRIDE_DIR so fixup_bundle in
-          # bundle_fixup/CMakeLists.txt bundles the GCC 14 DLLs into the
-          # NSIS installer instead of the GCC 16 ones from /mingw64/bin/.
-          mkdir -p /tmp/gcc14dlls
-          curl -sL "${BASE}/mingw-w64-x86_64-gcc-libs-14.2.0-3-any.pkg.tar.zst" \
-            | zstd -dc | tar -x --strip-components=2 -C /tmp/gcc14dlls \
-                mingw64/bin/libstdc++-6.dll \
-                mingw64/bin/libgcc_s_seh-1.dll \
-                mingw64/bin/libgomp-1.dll \
-                mingw64/bin/libquadmath-0.dll \
-                mingw64/bin/libatomic-1.dll
-          ls -la /tmp/gcc14dlls/
-
           gcc --version | head -1
           gfortran --version | head -1
 
@@ -101,7 +85,6 @@ jobs:
             -DWSJT_SKIP_MANPAGES=ON \
             -DWSJT_GENERATE_DOCS=OFF \
             -DWSJT_WITH_OMNIRIG=OFF \
-            -DGCC_RUNTIME_OVERRIDE_DIR=/tmp/gcc14dlls \
             ..
 
       - name: Build

@@ -1,14 +1,6 @@
 get_target_property (QtCore_location Qt5::Core LOCATION)
 get_filename_component (QtCore_location ${QtCore_location} PATH)
 
-# GCC_RUNTIME_OVERRIDE_DIR: if set, prepend it to fixup_library_dirs so
-# fixup_bundle bundles DLLs from this directory rather than from the system
-# /mingw64/bin/. Used in CI to inject GCC 14.2.0-3 runtime DLLs into the
-# NSIS installer when the system GCC is a newer incompatible version.
-if (GCC_RUNTIME_OVERRIDE_DIR AND WIN32)
-  list (APPEND fixup_library_dirs ${GCC_RUNTIME_OVERRIDE_DIR})
-endif ()
-
 list (APPEND fixup_library_dirs ${QtCore_location})
 
 if (APPLE OR WIN32)

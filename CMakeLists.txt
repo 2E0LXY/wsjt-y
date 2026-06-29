@@ -1147,6 +1147,25 @@ if (NOT APPLE)
   set (CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} -Wl,--gc-sections")
 endif (NOT APPLE)
 
+# On Windows/MinGW the MSYS2 packages (Qt, ICU, Boost) are built with the
+# current GCC (16.x at time of writing) while we must compile WSJT-Zii with
+# GCC 14 to avoid the .tls_common Fortran regression (GCC 15+ bug).  Mixing
+# executables built with GCC 14 and shared DLLs built with GCC 16 causes
+# two distinct crashes at launch:
+#   - __emutls_v_ZSt11__once_call not found in libstdc++-6.dll  (GCC 14 exe,
+#     GCC 16 DLL — call_once TLS ABI changed)
+#   - _ZSt15__get_once_callv not found in libicuuc78.dll  (GCC 16 ICU loaded
+#     libstdc++ looking for a GCC 16 symbol we replaced with GCC 14's copy)
+#
+# Solution: statically link the GCC runtime into each executable so the exe
+# carries its own copy of GCC 14's libstdc++/libgcc/libgfortran and never
+# conflicts with GCC 16's shared runtime used by Qt/ICU/Boost DLLs.
+if (WIN32 AND MINGW)
+  set (CMAKE_EXE_LINKER_FLAGS
+       "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static-libgfortran")
+  message (STATUS "Windows/MinGW: statically linking libgcc, libstdc++, libgfortran into executables")
+endif (WIN32 AND MINGW)
+
 
 #
 # setup and test Fortran C/C++ interaction
