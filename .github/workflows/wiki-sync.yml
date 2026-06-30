@@ -19,9 +19,23 @@ jobs:
           git config --global user.email "2e0lxy@aprsnet.uk"
           git config --global user.name "2E0LXY"
 
-          git clone \
-            "https://2E0LXY:${{ secrets.GITHUB_TOKEN }}@github.com/2E0LXY/wsjt-zii.wiki.git" \
-            /tmp/wiki-repo
+          WIKI_URL="https://2E0LXY:${{ secrets.GITHUB_TOKEN }}@github.com/2E0LXY/wsjt-zii.wiki.git"
+
+          if git clone "$WIKI_URL" /tmp/wiki-repo 2>/dev/null; then
+            echo "Wiki repo cloned OK"
+          else
+            echo "Wiki repo not yet initialised — creating it now"
+            mkdir /tmp/wiki-repo
+            cd /tmp/wiki-repo
+            git init
+            git remote add origin "$WIKI_URL"
+            # GitHub wiki requires at least one page to exist; create a bootstrap Home page
+            printf '# WSJT-Zii Wiki\n\nFull documentation is synced automatically from the source repository.\n\nSee [Home](Home) for the main index.\n' > Home.md
+            git add Home.md
+            git commit -m "Bootstrap wiki"
+            git push origin master
+            cd -
+          fi
 
           cp wiki/*.md /tmp/wiki-repo/
 

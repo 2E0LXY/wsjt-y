@@ -96,7 +96,7 @@ subroutine mskrtd(id2,nutc0,tsec,ntol,nrxfreq,ndepth,mycall,hiscall,      &
   tframe=float(NSPM)/12000.0 
   line(1:1)=char(0)
   msgreceived='                                     '
-  max_iterations=10
+  max_iterations=15  ! was 10 — real-time path; same modest increase as msk144decodeframe.f90
   niterations=0
   d(1:NZ)=id2
   rms=sqrt(sum(d(1:NZ)*d(1:NZ))/NZ)

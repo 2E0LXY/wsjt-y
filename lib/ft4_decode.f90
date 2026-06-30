@@ -191,7 +191,7 @@ contains
 ! ndepth=2: 3 passes, bp only
 ! ndepth=1: 1 pass, no subtraction
 
-      max_iterations=40
+      max_iterations=55  ! was 40 — FT4 primary path; matches ft8bvar rate
       syncmin=1.2
       dosubtract=.true.
       doosd=.true.
