@@ -853,6 +853,7 @@ int main(int argc, char *argv[])
                 break;
             case 'o':  //use ordered-statistics-decoder
                 ndepth=(int) strtol(optarg,NULL,10);
+                if(ndepth>6) ndepth=6;  // cap raised 5→6; ndeep=6 added in osdwspr.f90
                 break;
             case 'q':  //no shift jittering
                 quickmode = 1;
