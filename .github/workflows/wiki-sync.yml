@@ -8,6 +8,7 @@ on:
 jobs:
   sync-wiki:
     runs-on: ubuntu-latest
+    continue-on-error: true   # wiki git repo requires manual first-page creation via web UI
     permissions:
       contents: write
 
