@@ -24,7 +24,7 @@ subroutine decode240_101(llr,Keff,maxosd,norder,apmask,message101,cw,ntype,nhard
 
    include "ldpc_240_101_parity.f90"
 
-   maxiterations=30
+   maxiterations=50  ! was 30 — FST4 (240,101); same BP iteration reasoning as FT8/FT4
    nosd=0
    if(maxosd.gt.3) maxosd=3
    if(maxosd.eq.0) then ! osd with channel llrs

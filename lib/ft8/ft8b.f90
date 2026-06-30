@@ -94,7 +94,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
   dxcall13=hiscall12  ! initialize for use in packjt77
   mycall13=mycall12
 
-  max_iterations=30
+  max_iterations=50  ! was 30 — non-OMP FT8 path; consistent with ft8bvar.f90
   nharderrors=-1
   fs2=12000.0/NDOWN
   dt2=1.0/fs2

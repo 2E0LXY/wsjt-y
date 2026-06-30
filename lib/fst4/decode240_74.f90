@@ -24,8 +24,8 @@ subroutine decode240_74(llr,Keff,maxosd,norder,apmask,message74,cw,ntype,nharder
 
    include "ldpc_240_74_parity.f90"
 
-   maxiterations=30
-   if(Keff.eq.50) maxiterations=1
+   maxiterations=50  ! was 30 — FST4 (240,74); same reasoning as decode240_101
+   if(Keff.eq.50) maxiterations=1  ! fast AP scan path — keep 1 iteration (unchanged)
 
    nosd=0
    if(maxosd.gt.3) maxosd=3
