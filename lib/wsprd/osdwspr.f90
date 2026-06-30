@@ -98,7 +98,7 @@ ntotal=0
 nrejected=0
 
 if(ndeep.le.0) goto 998  ! norder=0
-if(ndeep.gt.5) ndeep=5
+if(ndeep.gt.6) ndeep=6
 if( ndeep.eq. 1) then
    nord=1
    npre1=0
@@ -133,6 +133,13 @@ elseif(ndeep.eq.5) then
    nt=66
    ntheta=22
    ntau=16
+else                     !ndeep=6 — order-4 OSD; K=50 keeps C(50,4)=230,300
+   nord=4                ! candidates feasible within WSPR's 120s T/R period
+   npre1=1
+   npre2=1
+   nt=100
+   ntheta=28
+   ntau=20
 endif
 
 do iorder=1,nord

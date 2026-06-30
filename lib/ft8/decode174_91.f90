@@ -24,7 +24,8 @@ subroutine decode174_91(llr,Keff,maxosd,norder,apmask,message91,cw,ntype,nharder
 
    include "ldpc_174_91_c_parity.f90"
 
-   maxiterations=30
+   maxiterations=50  ! was 30 — matches the FT8 fix; this shared (174,91)
+                      ! base decoder is used by FT4 via decode174_91
    nosd=0
    if(maxosd.gt.3) maxosd=3
    if(maxosd.eq.0) then ! osd with channel llrs

@@ -170,7 +170,8 @@ subroutine ft2_decode(cdatetime0,nfqso,iwave,ndecodes,mycall,hiscall,nrx,line)
         sigma=0.80
         llr(1:128)=2*rxdata/(sigma*sigma)
         apmask=0
-        max_iterations=40
+        max_iterations=55  ! was 40 — same (174,91) LDPC family as FT8;
+                            ! identical justification to the FT8 fix
         do ibias=0,0
            llr2=llr
            if(ibias.eq.1) llr2=llr+0.4

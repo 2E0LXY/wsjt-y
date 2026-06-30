@@ -411,10 +411,11 @@ contains
                   message77=0
                   dmin=0.0
 
-                  ndeep=2
+                  ndeep=3    ! was 2 — stock osd174_91.f90 supports up to 6;
+                             ! FT4's 7.5s period leaves headroom unused at 2
                   maxosd=2  
                   if(abs(nfqso-f1).le.napwid) then
-                     ndeep=2
+                     ndeep=3
                      maxosd=3
                   endif
                   if(.not.doosd) maxosd = -1

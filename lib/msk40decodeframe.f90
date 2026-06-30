@@ -113,7 +113,8 @@ subroutine msk40decodeframe(c,mycall,hiscall,xsnr,bswl,nhasharray,             &
   llr(1:32)=softbits(9:40)
   llr=2.0*llr/(sigma*sigma)
   
-  max_iterations=5
+  max_iterations=8   ! was 5 — same conservative reasoning as the long-frame
+                      ! variant; short-frame MSK144 is even more latency-sensitive
   call bpdecode40(llr,max_iterations,decoded,niterations)
   if( niterations .ge. 0.0 ) then
     call encode_msk40(decoded,cw)
