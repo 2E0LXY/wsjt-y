@@ -4785,6 +4785,7 @@ list. The list can be maintained in Settings (F2).</string>
     <addaction name="cbDockWF"/>
     <addaction name="actionCall_info"/>
     <addaction name="actionDark_mode"/>
+    <addaction name="actionShow_callsigns_on_waterfall"/>
     <addaction name="separator"/>
     <addaction name="actionUnfiltered_View"/>
     <addaction name="actionPSKReporter"/>
@@ -5590,6 +5591,17 @@ list. The list can be maintained in Settings (F2).</string>
    </property>
    <property name="text">
     <string>Dark mode</string>
+   </property>
+  </action>
+  <action name="actionShow_callsigns_on_waterfall">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show callsigns on waterfall</string>
+   </property>
+   <property name="toolTip">
+    <string>Overlay decoded callsigns on the 2D spectrum display</string>
    </property>
   </action>
   <action name="actionQ65">

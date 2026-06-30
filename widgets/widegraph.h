@@ -7,6 +7,8 @@
 #include <QDir>
 #include <QHash>
 #include <QVariant>
+#include <QPair>
+#include <QList>
 #include "WFPalette.hpp"
 
 #define MAX_SCREENSIZE 2048
@@ -54,6 +56,7 @@ public:
   void   setSingleDecode(bool b);
   void   setDiskUTC(int nutc);
   void   restartTotalPower();
+  void   setDecodeLabels(QList<QPair<int,QString>> const& labels, bool show);
 
 signals:
   void freezeDecode2(int n);

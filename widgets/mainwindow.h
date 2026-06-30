@@ -442,7 +442,7 @@ private slots:
     void bandActivityClickToggle(Qt::KeyboardModifiers modifiers);
      void on_actionCall_info_triggered();
      void on_actionDark_mode_triggered();
-     void qrzInit();
+     void on_actionShow_callsigns_on_waterfall_toggled(bool checked);     void qrzInit();
      void qrzSetSessionKey(QNetworkReply *r) ;
      void qrzResponseHandler(QNetworkReply * r);
      void on_q_button_clicked();
@@ -770,6 +770,8 @@ private:
   QDateTime m_watchdogAnchorUtc;
   qint64 m_msTxFirst;
   bool m_TxFirstLock = false;
+  QList<QPair<int,QString>> m_decodesLabelCache;  // (audio_freq_hz, callsign) for waterfall overlay
+  void updateWaterfallCallsigns();
   bool m_savedAutoCQfiltering = false;
   bool m_savedProcessTailenders = false;
   bool m_savedAutoCQfilteringValid = false;

@@ -13,6 +13,9 @@
 #include <QImage>
 #include <QVector>
 #include <QColor>
+#include <QPair>
+#include <QList>
+#include <QString>
 #include <QToolTip>
 
 #define VERT_DIVS 7	//specify grid screen divisions
@@ -97,6 +100,9 @@ public:
   void setDiskUTC(int nutc);
   void restartTotalPower();
 
+  // Callsign overlay: feed freq(Hz)+callsign pairs after each decode pass
+  void setDecodeLabels(QList<QPair<int,QString>> const& labels, bool show);
+
   bool scaleOK () const {return m_bScaleOK;}
 signals:
   void freezeDecode1(int n);
@@ -132,6 +138,8 @@ private:
   bool    m_bResized;
   bool    m_bSuperFox=false;
   bool    m_bSuperHound=false;
+  bool    m_bShowDecodeLabels=false;
+  QList<QPair<int,QString>> m_decodeLabels;  // (freq_hz, callsign)
   bool	  m_bars;
   bool	  m_clear;
   float   m_fSpan;

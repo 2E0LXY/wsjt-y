@@ -10,6 +10,7 @@
 #include <iterator>
 #include <algorithm>
 #include <fftw3.h>
+#include <QPair>
 #include <QApplication>
 #include <QStringListModel>
 #include <QSettings>
@@ -1674,6 +1675,7 @@ void MainWindow::writeSettings()
   m_settings->setValue ("showCallInfo", ui->actionCall_info->isChecked());
   m_settings->setValue ("filter_enabled", ui->cb_filtering->isChecked());
   m_settings->setValue ("darkMode", ui->actionDark_mode->isChecked());
+  m_settings->setValue ("showCallsignsOnWaterfall", ui->actionShow_callsigns_on_waterfall->isChecked());
   m_settings->setValue ("rawViewDisplayed", m_unfilteredView && m_unfilteredView->isVisible ());
   m_settings->setValue ("pskViewDisplayed", m_pskReporterView && m_pskReporterView->isVisible ());
   m_settings->setValue ("txFirstLock",  m_TxFirstLock);
@@ -1925,6 +1927,8 @@ void MainWindow::readSettings()
   ui->cbDockWF->setChecked(m_settings->value("dockWaterfall", false).toBool());
   ui->actionCall_info->setChecked(m_settings->value("showCallInfo", false).toBool());
   ui->actionDark_mode->setChecked(m_settings->value("darkMode", false).toBool());
+  ui->actionShow_callsigns_on_waterfall->setChecked(
+      m_settings->value("showCallsignsOnWaterfall", false).toBool());
   ui->cb_filtering->setChecked(m_settings->value("filter_enabled", true).toBool());
   // Misc tab
   ui->cb_autoModeSwitch->setChecked(m_settings->value("autoModeSwitchEnabled", false).toBool());
@@ -4948,7 +4952,12 @@ void MainWindow::decodeDone ()
     }
     ARRL_Digi_Display();  // Update the ARRL_DIGI display
   }
-  if(m_mode!="FT8" or dec_data.params.nzhsym==50) m_nDecodes=0;
+  if(m_mode!="FT8" or dec_data.params.nzhsym==50) {
+    m_nDecodes=0;
+    // All decodes for this period are in the cache — push to the waterfall overlay
+    updateWaterfallCallsigns();
+    m_decodesLabelCache.clear();  // ready for next period
+  }
 
   if(m_mode=="Q65" and (m_specOp==SpecOp::NA_VHF or m_specOp==SpecOp::ARRL_DIGI
                         or m_specOp==SpecOp::WW_DIGI or m_specOp==SpecOp::Q65_PILEUP)
@@ -5634,6 +5643,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
             QString deCall;
             QString grid;
             decodedtext.deCallAndGrid(deCall,grid);
+
+            // Waterfall callsign overlay: accumulate (freq_hz, callsign) per decode
+            {
+              int fHz = decodedtext.frequencyOffset();
+              QString label = deCall.trimmed();
+              // For CQ lines use the calling station; for directed messages use deCall
+              if (label.isEmpty()) label = decodedtext.CQersCall().trimmed();
+              if (!label.isEmpty() && fHz > 0)
+                m_decodesLabelCache.append({fHz, label});
+            }
 
     QString rawViewLine;
     if ((m_unfilteredView && m_unfilteredView->isVisible()) || m_bandActivityRawView) {
@@ -15451,6 +15470,34 @@ void MainWindow::on_actionDark_mode_triggered() {
         qso_count.setStyleSheet ("QLabel{background-color: #00bbbb; padding-left: 10px; padding-right: 10px}");
         initialize_fonts();
     }
+}
+
+void MainWindow::on_actionShow_callsigns_on_waterfall_toggled(bool /*checked*/)
+{
+  // Re-feed the current decode set with the new show/hide state.
+  updateWaterfallCallsigns();
+}
+
+void MainWindow::updateWaterfallCallsigns()
+{
+  // Build a list of (audio_freq_hz, callsign) pairs from the decoded-text
+  // browser and push them to the plotter overlay. Called after each decode
+  // pass and when the toggle changes.
+  if (!m_wideGraph) return;
+  bool show = ui->actionShow_callsigns_on_waterfall->isChecked();
+  QList<QPair<int,QString>> labels;
+  if (show) {
+    // Walk the last decode pass results. m_decoded_list is populated in
+    // the same cycle as the text browser; fall back to parsing the raw
+    // text from the browser if needed.
+    for (auto const& dt : m_decodesLabelCache) {
+      int freq = dt.first;
+      QString call = dt.second;
+      if (!call.isEmpty() && freq > 0)
+        labels.append({freq, call});
+    }
+  }
+  m_wideGraph->setDecodeLabels(labels, show);
 }
 
 QString MainWindow::stateLookup(QString callsign) {

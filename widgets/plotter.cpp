@@ -715,6 +715,30 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
       painter0.drawLine(x1,9,x2,9);
     }
   }
+
+  // Callsign overlay: draw decoded callsigns as small labels on the 2D spectrum
+  // Enabled via View > Show callsigns on waterfall (m_bShowDecodeLabels).
+  if(m_bShowDecodeLabels && !m_decodeLabels.isEmpty()) {
+    QFont lf = painter0.font();
+    lf.setPointSize(7);
+    lf.setBold(false);
+    painter0.setFont(lf);
+    for(auto const& pair : m_decodeLabels) {
+      int fx = XfromFreq(float(pair.first));
+      if(fx < 0 || fx > m_w) continue;
+      QString label = pair.second.trimmed().left(10);
+      QRect textRect = painter0.fontMetrics().boundingRect(label);
+      int tx = qBound(0, fx - textRect.width()/2, m_w - textRect.width());
+      int ty = m_h2 - 4;
+      // semi-transparent background pill
+      painter0.setPen(Qt::NoPen);
+      painter0.setBrush(QColor(0,0,0,140));
+      painter0.drawRoundedRect(tx-2, ty-textRect.height(), textRect.width()+4, textRect.height()+2, 2, 2);
+      // label text: white with a dark callsign-coloured accent
+      painter0.setPen(QColor(200,220,255));
+      painter0.drawText(tx, ty, label);
+    }
+  }
 }
 
 void CPlotter::MakeFrequencyStrs()                       //MakeFrequencyStrs
@@ -1070,4 +1094,12 @@ void CPlotter::clear()
 
     DrawOverlay();
     update();
+}
+
+void CPlotter::setDecodeLabels(QList<QPair<int,QString>> const& labels, bool show)
+{
+  m_decodeLabels = labels;
+  m_bShowDecodeLabels = show;
+  DrawOverlay();
+  update();
 }

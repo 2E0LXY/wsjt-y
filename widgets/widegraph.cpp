@@ -593,3 +593,8 @@ void WideGraph::restartTotalPower()
 {
   ui->widePlot->restartTotalPower();
 }
+
+void WideGraph::setDecodeLabels(QList<QPair<int,QString>> const& labels, bool show)
+{
+  ui->widePlot->setDecodeLabels(labels, show);
+}
