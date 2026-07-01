@@ -13,6 +13,7 @@
 #include <QTimer>
 #include <QDateTime>
 #include <QList>
+#include "widgets/DXStationMap.h"
 #include <QAudioDeviceInfo>
 #include <QScopedPointer>
 #include <QDir>
@@ -773,6 +774,8 @@ private:
   bool m_TxFirstLock = false;
   QList<QPair<int,QString>> m_decodesLabelCache;  // (audio_freq_hz, callsign) for waterfall overlay
   void updateWaterfallCallsigns();
+  DXStationMap *m_dxMap = nullptr;
+  QDockWidget  *m_dxMapDock = nullptr;
   bool m_savedAutoCQfiltering = false;
   bool m_savedProcessTailenders = false;
   bool m_savedAutoCQfilteringValid = false;

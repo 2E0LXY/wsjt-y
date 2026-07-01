@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <fftw3.h>
 #include <QPair>
+#include <QDockWidget>
+#include "widgets/DXStationMap.h"
 #include <QApplication>
 #include <QStringListModel>
 #include <QSettings>
@@ -630,6 +632,20 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(m_wideGraph.data (), SIGNAL(freezeDecode2(int)),this,SLOT(freezeDecode(int)));
   connect(m_wideGraph.data (), SIGNAL(f11f12(int)),this,SLOT(bumpFqso(int)));
   connect(m_wideGraph.data (), SIGNAL(setXIT2(int)),this,SLOT(setXIT(int)));
+
+  // DX Station Map dock (bottom-left, dockable)
+  m_dxMap = new DXStationMap(this);
+  m_dxMapDock = new QDockWidget(tr("DX Station Map"), this);
+  m_dxMapDock->setObjectName("DXStationMapDock");
+  m_dxMapDock->setWidget(m_dxMap);
+  m_dxMapDock->setFeatures(QDockWidget::DockWidgetMovable |
+                            QDockWidget::DockWidgetFloatable |
+                            QDockWidget::DockWidgetClosable);
+  addDockWidget(Qt::BottomDockWidgetArea, m_dxMapDock);
+  m_dxMapDock->resize(m_dxMapDock->width(), 200);
+  // Set home grid square from configuration (deferred — config not fully loaded yet)
+  if (!m_config.my_grid().isEmpty())
+      m_dxMap->setHomeGrid(m_config.my_grid());
 
   connect (m_fastGraph.data (), &FastGraph::fastPick, this, &MainWindow::fastPick);
 
@@ -4963,6 +4979,7 @@ void MainWindow::decodeDone ()
     // All decodes for this period are in the cache — push to the waterfall overlay
     updateWaterfallCallsigns();
     m_decodesLabelCache.clear();  // ready for next period
+    if (m_dxMap) m_dxMap->clearStations();  // fresh station list each T/R period
   }
 
   if(m_mode=="Q65" and (m_specOp==SpecOp::NA_VHF or m_specOp==SpecOp::ARRL_DIGI
@@ -5672,6 +5689,19 @@ void MainWindow::readFromStdout()                             //readFromStdout
               if (!label.isEmpty() && fHz > 0)
                 m_decodesLabelCache.append({fHz, label});
             }
+            // DX Station Map: plot the decalled station if it has a grid
+            if (!deCall.isEmpty() && !grid.isEmpty() && m_dxMap) {
+              bool isCQ = !decodedtext.CQersCall().isEmpty();
+              bool forMe = decodedtext.string().contains(
+                  " " + m_config.my_callsign().trimmed() + " ") ||
+                  decodedtext.string().endsWith(
+                  " " + m_config.my_callsign().trimmed());
+              PlottedStation ps;
+              ps.call = deCall; ps.grid = grid.trimmed().left(4);
+              ps.snr = 0; ps.isCQ = isCQ; ps.forMe = forMe;
+              if (!ps.grid.isEmpty())
+                m_dxMap->addStation(ps);
+            }
 
     QString rawViewLine;
     if ((m_unfilteredView && m_unfilteredView->isVisible()) || m_bandActivityRawView) {
@@ -5941,6 +5971,11 @@ void MainWindow::readFromStdout()                             //readFromStdout
                   m_deCall=deCall;
                   m_bDoubleClicked=true;
                   ui->dxCallEntry->setText(deCall);
+                  // Update DX Station Map to show the clicked callsign's location
+                  if (m_dxMap && !deGrid.isEmpty()) {
+                    m_dxMap->showStation(deCall, deGrid, 0,
+                                         !decodedtext.CQersCall().isEmpty(), false);
+                  }
                   int m_ntx=2;
                   bool bContest=m_specOp==SpecOp::NA_VHF or m_specOp==SpecOp::ARRL_DIGI;
                   if(bContest) m_ntx=3;

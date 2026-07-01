@@ -287,6 +287,7 @@ set (wsjtx_CXXSRCS
   widgets/signalmeter.cpp
   widgets/plotter.cpp
   widgets/widegraph.cpp
+  widgets/DXStationMap.cpp
   widgets/echograph.cpp
   widgets/echoplot.cpp
   widgets/fastgraph.cpp
