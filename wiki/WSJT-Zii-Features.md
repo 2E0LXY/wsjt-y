@@ -1,127 +1,91 @@
 # WSJT-Zii Features
 
-Features added or improved by WSJT-Z and WSJT-Zii beyond the base WSJT-X implementation.
+Features added or improved by 2E0LXY's WSJT-Zii fork beyond the base WSJT-Z (sq9fve) and WSJT-X 3.0.0 implementation.
 
 ---
 
 ## Multi-threaded FT8 decoder
 
-WSJT-Zii runs multiple decoder threads in parallel during each 15-second receive period. This allows:
-
-- More decode candidates examined per period
-- Better performance on multi-core systems
-- Higher decode success rate on weak signals
-
-Configure in **Settings → WSJT-Zii → FT8 Threads**. Default matches your CPU core count.
+WSJT-Zii runs multiple decoder threads in parallel during each receive period. Configure in **Settings → WSJT-Zii → FT8 Threads**. Default matches your CPU core count.
 
 ---
 
-## Improved receive sensitivity
+## Sensitivity improvements
 
-WSJT-Zii v3.0.0 implements four sensitivity improvements over the base decoder:
+### LDPC BP iterations raised — all modes
 
-### 1. LDPC iterations (50 vs 30)
-The belief-propagation LDPC decoder runs 50 iterations instead of 30. Each additional iteration can recover signals the previous step missed. Gain: ~0.3 dB at negligible compute cost.
+The belief-propagation LDPC decoder now runs more iterations across every mode that previously used the default 30-iteration ceiling. More iterations mean the decoder can resolve ambiguities that earlier iterations left uncertain.
 
-### 2. OSD depth levels 6 and 7
-Ordered Statistics Decoding (OSD) now has two new depth levels:
-- **ndeep=6**: order-2 OSD with wider search (nt=80, ntheta=20, ntau=24) — ~0.8 dB gain over ndeep=5
-- **ndeep=7**: maximum order-2 OSD (nt=120, ntheta=30, ntau=27) — ~1.5 dB gain; available in monitor mode
+| Mode | Previous | Current |
+|---|---|---|
+| FT8 (OMP + non-OMP) | 30 | 50 |
+| FT4 | 30–40 | 50–55 |
+| FST4 (240/101 + 240/74) | 30 | 50 |
+| MSK144 (batch + real-time) | 5–10 | 8–15 |
+| WSPR | (OSD-only path) | (unchanged) |
 
-These are automatically used in high-sensitivity and repeat-scan modes.
+### OSD search depth extended — FT8
 
-### 3. Sync threshold reduction (1.1 → 0.9)
-The minimum synchronisation threshold on the final residual pass has been reduced from 1.1 to 0.9. This allows approximately 0.8 dB weaker signals to enter the decode chain on the residual pass (after strong signals have been subtracted), with low false-positive risk.
+Ordered Statistics Decoding now has two additional depth tiers for FT8 (`ft8var/osd174_91var.f90`):
 
-### 4. Sensitivity in context
-| Mode | Approx. sensitivity |
-|------|-------------------|
-| FT8 standard | −21 dB S/N |
-| FT8 low thresholds | −23 dB S/N |
-| FT8 subpass (WSJT-Zii) | −25 dB S/N |
-| Shannon limit (FT8) | −27.5 dB S/N |
+- **ndeep=6**: order-3 OSD (nt=80, ntheta=20, ntau=24) — wider search than the original ndeep=5
+- **ndeep=7**: order-4 OSD (nt=120, ntheta=30, ntau=27) — maximum depth, available in monitor/SWL mode
 
-Sensitivity below −27.5 dB is physically impossible for FT8 — it would require more channel capacity than the 50 Hz / 12.64 s / 77-bit protocol provides.
+The OSD in `ft8/osd174_91.f90` (shared by FT4) now also supports ndeep=7, matching the FT8 path.
 
----
+### OSD depth extended — FT4, FST4, MSK144
 
-## Auto-call (Auto Sequence)
+The `maxosd` pass counter caps in `decode174_91.f90`, `decode240_101.f90`, and `decode240_74.f90` were raised from 3 to 4, allowing one additional OSD pass per decode attempt. The underlying OSD backends already supported the extra depth.
 
-Enable **Auto Seq** to let WSJT-Zii work contacts automatically.
+`osd128_90.f90` (MSK144's OSD) gained a new ndeep=6 tier (order-2, K=90 so C(90,2)=4005 candidates — negligible compute cost).
 
-When enabled:
-1. Decoded CQ calls matching your filters are automatically answered
-2. The QSO sequence (report exchange → RRR → 73) completes without intervention
-3. The log entry is written automatically
+### WSPR OSD depth — Maximum tier
 
-**Auto-call filters** prevent WSJT-Zii from answering every CQ:
-- DXCC entity whitelist / blacklist
-- Callsign prefix filter
-- Minimum signal threshold
-- "Worked before" exclusion
+`osdwspr.f90` has a new ndeep=6 tier (order-4 OSD, C(50,4)≈230k candidates — feasible in WSPR's 120s T/R period). Exposed via **Decode → Maximum** in the menu. The wsprd `-o` flag cap was raised from 5 to 6 to allow it.
+
+### Experimental NMS decoder
+
+`bpdecode174_91var_nms.f90` implements a Normalized Min-Sum check-node update (α=0.75) as an alternative to the default sum-product (tanh/atanh) decoder. Claimed gain: +0.2–0.4 dB. Enable with `WSJTZ_USE_NMS_DECODER=1` environment variable. **Not the default** — needs on-air validation first.
 
 ---
 
-## Signal filtering
+## Waterfall callsign overlay
 
-**Settings → WSJT-Zii → Filters**
+**View → Show callsigns on waterfall** overlays decoded callsigns as small pill labels on the 2D spectrum display at each signal's audio frequency:
 
-### Callsign filtering
-Define a list of callsign prefixes or full calls that should (or should not) appear in the decoded messages panel. Useful for monitoring specific DX or for contest exchanges.
+- **Blue**: CQ / DE / QRZ — the calling station
+- **Green**: directed at your callsign
+- **Grey**: directed at another station
 
-### DX entity filter
-Show only callsigns from specific DXCC entities, or hide entities you've already worked on this band/mode.
-
-### Threshold filter
-Hide decodes below a configurable S/N threshold (e.g. hide all signals below −20 dB to reduce clutter).
+State is saved across restarts.
 
 ---
 
-## Band-hopper
+## WSPR Decode depth — Maximum tier
 
-The band-hopper schedules automatic frequency changes at configurable intervals, useful for:
-- Automated propagation monitoring across multiple bands
-- Unattended WSPR beaconing on a rotating schedule
+A fourth decode depth tier (**Decode → Maximum**) passes `-o 6` to wsprd, enabling the order-4 OSD backend added in osdwspr.f90. This is significantly slower than Deep mode but may recover stations that no other tier decodes.
 
-Configure in **Settings → WSJT-Zii → Band Hopper**:
-- List of bands/frequencies to visit
-- Dwell time per frequency
-- TX enable per band
-
----
-
-## QRM-stop
-
-WSJT-Zii detects when it is causing mutual QRM with another station and can automatically halt transmission. This activates when:
-- You are in a QSO attempt
-- Another station's transmission overlaps your frequency
-- The decode confirms QRM is occurring
-
-The QRM-stop condition excludes Fox mode (DXpedition operating style) to prevent false halts.
+| Tier | wsprd flags | OSD ndeep |
+|---|---|---|
+| Quick | `-qB` | none |
+| Medium | `-C 500 -o 4` | 4 |
+| Deep | `-C 500 -o 4 -d` | 4 + more candidates |
+| **Maximum** | `-C 500 -o 6 -d` | 6 (order-4) |
 
 ---
 
-## Message tombstoning
+## OmniRig CAT control
 
-Once a message has been decoded and acted upon, WSJT-Zii marks it as "tombstoned" — it will not reappear in the active decode list for the current session. This prevents:
-- Already-worked stations cluttering the display
-- Auto-call re-initiating QSOs with stations you've already worked
-- Duplicate log entries from repeated decode of the same signal
+OmniRig Rig 1 / Rig 2 appear in the **Settings → Radio → Rig** dropdown. Requires [OmniRig](http://www.dxatlas.com/OmniRig/) installed separately.
 
 ---
 
-## OTP (one-time password) generator
+## Dark mode
 
-A built-in TOTP generator is included for secure remote station access scenarios. Access via **Tools → OTP Generator**.
+**View → Dark mode** applies the QDarkStyleSheet to the entire application.
 
 ---
 
-## Debug / diagnostic mode
+## 9 upstream bug fixes
 
-Enable detailed logging via **Help → WSJT-Zii Debug**. The debug log records:
-- Decoder timing and thread activity
-- CAT commands sent and received
-- Filter decisions (why a signal was shown/hidden)
-- Auto-call state machine transitions
-
-Log is written to `wsjtx_debug.log` in your configuration directory.
+Bugs fixed over the base wsjt-z fork: operator precedence in `ft8bvar.f90`, count/ratio type mix errors, `log10()` of non-positive value, `ctab[]` out-of-bounds, and five further correctness issues. Full list in [Changelog](Changelog).
