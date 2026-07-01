@@ -1676,6 +1676,7 @@ void MainWindow::writeSettings()
   m_settings->setValue ("filter_enabled", ui->cb_filtering->isChecked());
   m_settings->setValue ("darkMode", ui->actionDark_mode->isChecked());
   m_settings->setValue ("showCallsignsOnWaterfall", ui->actionShow_callsigns_on_waterfall->isChecked());
+  m_settings->setValue ("nmsDecoder", ui->actionNMS_decoder->isChecked());
   m_settings->setValue ("rawViewDisplayed", m_unfilteredView && m_unfilteredView->isVisible ());
   m_settings->setValue ("pskViewDisplayed", m_pskReporterView && m_pskReporterView->isVisible ());
   m_settings->setValue ("txFirstLock",  m_TxFirstLock);
@@ -1929,6 +1930,11 @@ void MainWindow::readSettings()
   ui->actionDark_mode->setChecked(m_settings->value("darkMode", false).toBool());
   ui->actionShow_callsigns_on_waterfall->setChecked(
       m_settings->value("showCallsignsOnWaterfall", false).toBool());
+  {
+    bool nms = m_settings->value("nmsDecoder", false).toBool();
+    ui->actionNMS_decoder->setChecked(nms);
+    qputenv("WSJTZ_USE_NMS_DECODER", nms ? "1" : "0");
+  }
   ui->cb_filtering->setChecked(m_settings->value("filter_enabled", true).toBool());
   // Misc tab
   ui->cb_autoModeSwitch->setChecked(m_settings->value("autoModeSwitchEnabled", false).toBool());
@@ -15489,6 +15495,15 @@ void MainWindow::on_actionShow_callsigns_on_waterfall_toggled(bool /*checked*/)
 {
   // Re-feed the current decode set with the new show/hide state.
   updateWaterfallCallsigns();
+}
+
+void MainWindow::on_actionNMS_decoder_toggled(bool checked)
+{
+  // Update the process environment immediately so the next decode period
+  // picks up the change without restarting the application.
+  // The Fortran decoder (bpdecode174_91var_nms.f90) reads this via
+  // get_environment_variable("WSJTZ_USE_NMS_DECODER") at each call site.
+  qputenv("WSJTZ_USE_NMS_DECODER", checked ? "1" : "0");
 }
 
 void MainWindow::updateWaterfallCallsigns()

@@ -4861,6 +4861,8 @@ list. The list can be maintained in Settings (F2).</string>
     <addaction name="actionDeepestDecode"/>
     <addaction name="actionMaximumDecode"/>
     <addaction name="separator"/>
+    <addaction name="actionNMS_decoder"/>
+    <addaction name="separator"/>
     <addaction name="actionUse_multithreaded_FT8_decoder"/>
     <addaction name="menuParameters"/>
     <addaction name="separator"/>
@@ -5181,6 +5183,17 @@ list. The list can be maintained in Settings (F2).</string>
    </property>
    <property name="toolTip">
     <string>Maximum WSPR decode depth (OSD order-4, ndeep=6). Slower but recovers the weakest signals.</string>
+   </property>
+  </action>
+  <action name="actionNMS_decoder">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>NMS decoder (experimental)</string>
+   </property>
+   <property name="toolTip">
+    <string>Use Normalized Min-Sum LDPC decoder instead of sum-product (tanh/atanh). May recover ~0.2-0.4 dB more signals. Unvalidated — report results via Issues.</string>
    </property>
   </action>
   <action name="actionErase_ALL_TXT">

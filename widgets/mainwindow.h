@@ -442,7 +442,8 @@ private slots:
     void bandActivityClickToggle(Qt::KeyboardModifiers modifiers);
      void on_actionCall_info_triggered();
      void on_actionDark_mode_triggered();
-     void on_actionShow_callsigns_on_waterfall_toggled(bool checked);     void qrzInit();
+     void on_actionShow_callsigns_on_waterfall_toggled(bool checked);
+     void on_actionNMS_decoder_toggled(bool checked);     void qrzInit();
      void qrzSetSessionKey(QNetworkReply *r) ;
      void qrzResponseHandler(QNetworkReply * r);
      void on_q_button_clicked();
