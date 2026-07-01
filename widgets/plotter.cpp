@@ -718,6 +718,7 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
 
   // Callsign overlay: draw decoded callsigns as small labels on the 2D spectrum
   // Enabled via View > Show callsigns on waterfall (m_bShowDecodeLabels).
+  // Label prefix encoding: "CQ:" = CQ call (blue), "ME:" = directed to me (green), "" = other (grey)
   if(m_bShowDecodeLabels && !m_decodeLabels.isEmpty()) {
     QFont lf = painter0.font();
     lf.setPointSize(7);
@@ -726,16 +727,28 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     for(auto const& pair : m_decodeLabels) {
       int fx = XfromFreq(float(pair.first));
       if(fx < 0 || fx > m_w) continue;
-      QString label = pair.second.trimmed().left(10);
+      QString raw = pair.second.trimmed();
+      QColor textColor;
+      QString label;
+      if(raw.startsWith("CQ:")) {
+        label = raw.mid(3).left(10);
+        textColor = QColor(100, 180, 255);   // blue — CQ/calling station
+      } else if(raw.startsWith("ME:")) {
+        label = raw.mid(3).left(10);
+        textColor = QColor(100, 255, 130);   // green — directed at my call
+      } else {
+        label = raw.left(10);
+        textColor = QColor(200, 200, 200);   // light grey — other directed
+      }
       QRect textRect = painter0.fontMetrics().boundingRect(label);
       int tx = qBound(0, fx - textRect.width()/2, m_w - textRect.width());
       int ty = m_h2 - 4;
       // semi-transparent background pill
       painter0.setPen(Qt::NoPen);
-      painter0.setBrush(QColor(0,0,0,140));
+      painter0.setBrush(QColor(0,0,0,150));
       painter0.drawRoundedRect(tx-2, ty-textRect.height(), textRect.width()+4, textRect.height()+2, 2, 2);
-      // label text: white with a dark callsign-coloured accent
-      painter0.setPen(QColor(200,220,255));
+      // label text
+      painter0.setPen(textColor);
       painter0.drawText(tx, ty, label);
     }
   }

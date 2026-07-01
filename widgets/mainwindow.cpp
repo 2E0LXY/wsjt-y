@@ -5644,12 +5644,25 @@ void MainWindow::readFromStdout()                             //readFromStdout
             QString grid;
             decodedtext.deCallAndGrid(deCall,grid);
 
-            // Waterfall callsign overlay: accumulate (freq_hz, callsign) per decode
+            // Waterfall callsign overlay: accumulate (freq_hz, type+callsign) per decode
+            // Type prefix: "CQ:" = CQ call, "ME:" = directed to my call, "" = other directed
             {
               int fHz = decodedtext.frequencyOffset();
-              QString label = deCall.trimmed();
-              // For CQ lines use the calling station; for directed messages use deCall
-              if (label.isEmpty()) label = decodedtext.CQersCall().trimmed();
+              QString cqCall = decodedtext.CQersCall().trimmed();
+              QString label;
+              if (!cqCall.isEmpty()) {
+                label = "CQ:" + cqCall;          // CQ/DE/QRZ — show calling station
+              } else {
+                QString dc = deCall.trimmed();
+                if (!dc.isEmpty()) {
+                  // Check if this decode is directed at our callsign
+                  bool forMe = decodedtext.string().contains(
+                      " " + m_config.my_callsign().trimmed() + " ") ||
+                      decodedtext.string().endsWith(
+                      " " + m_config.my_callsign().trimmed());
+                  label = (forMe ? "ME:" : "") + dc;
+                }
+              }
               if (!label.isEmpty() && fHz > 0)
                 m_decodesLabelCache.append({fHz, label});
             }
