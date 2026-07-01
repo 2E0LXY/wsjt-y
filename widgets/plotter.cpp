@@ -642,13 +642,13 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     }
   }
   
-  // Z
+  // Z — DialOverlayPixmap: Rx/Tx band bars + callsign labels
   QPainter overPainter(&m_DialOverlayPixmap);
-  if (m_bars) {
-    if (!overPainter.isActive()) overPainter.begin(this);
-    overPainter.setCompositionMode(QPainter::CompositionMode_Source);
-    overPainter.fillRect(0, 0, m_Size.width(), m_h, Qt::transparent);
-  }
+  // Always clear to transparent — prevents label accumulation across periods
+  // (previous code only cleared when m_bars was true, causing stacking)
+  overPainter.setCompositionMode(QPainter::CompositionMode_Source);
+  overPainter.fillRect(0, 0, m_Size.width(), m_h, Qt::transparent);
+  overPainter.setCompositionMode(QPainter::CompositionMode_SourceOver);
 
   if(m_mode.startsWith("FT") or m_mode.startsWith("JT") or m_mode=="Q65" or m_mode.startsWith("FST4")) {
     x1=XfromFreq(m_rxFreq);
@@ -716,14 +716,16 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
     }
   }
 
-  // Callsign overlay: draw decoded callsigns as small labels on the 2D spectrum
-  // Enabled via View > Show callsigns on waterfall (m_bShowDecodeLabels).
-  // Label prefix encoding: "CQ:" = CQ call (blue), "ME:" = directed to me (green), "" = other (grey)
+  // Callsign overlay labels drawn onto m_DialOverlayPixmap via overPainter.
+  // m_DialOverlayPixmap is drawn at widget y=30 (top of waterfall).
+  // overlay y=18 → widget y=48 — just inside the waterfall, below the scale strip.
+  // Label prefix: "CQ:"=blue, "ME:"=green, plain=grey.
   if(m_bShowDecodeLabels && !m_decodeLabels.isEmpty()) {
-    QFont lf = painter0.font();
+    QFont lf = overPainter.font();
     lf.setPointSize(7);
     lf.setBold(false);
-    painter0.setFont(lf);
+    overPainter.setFont(lf);
+    QFontMetrics fm(lf);
     for(auto const& pair : m_decodeLabels) {
       int fx = XfromFreq(float(pair.first));
       if(fx < 0 || fx > m_w) continue;
@@ -738,18 +740,18 @@ void CPlotter::DrawOverlay()                   //DrawOverlay()
         textColor = QColor(100, 255, 130);   // green — directed at my call
       } else {
         label = raw.left(10);
-        textColor = QColor(200, 200, 200);   // light grey — other directed
+        textColor = QColor(200, 200, 200);   // grey — other directed
       }
-      QRect textRect = painter0.fontMetrics().boundingRect(label);
+      QRect textRect = fm.boundingRect(label);
       int tx = qBound(0, fx - textRect.width()/2, m_w - textRect.width());
-      int ty = m_h2 - 4;
+      int ty = 18;   // in overlay coords; overlay drawn at widget y=30, so label at widget y=48
       // semi-transparent background pill
-      painter0.setPen(Qt::NoPen);
-      painter0.setBrush(QColor(0,0,0,150));
-      painter0.drawRoundedRect(tx-2, ty-textRect.height(), textRect.width()+4, textRect.height()+2, 2, 2);
+      overPainter.setPen(Qt::NoPen);
+      overPainter.setBrush(QColor(0,0,0,160));
+      overPainter.drawRoundedRect(tx-2, ty-textRect.height(), textRect.width()+4, textRect.height()+2, 2, 2);
       // label text
-      painter0.setPen(textColor);
-      painter0.drawText(tx, ty, label);
+      overPainter.setPen(textColor);
+      overPainter.drawText(tx, ty, label);
     }
   }
 }
