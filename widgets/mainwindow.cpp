@@ -1761,6 +1761,20 @@ void MainWindow::readSettings()
   change_layout (current_view_mode);
   geometries (current_view_mode, the_geometries);
   restoreState (m_settings->value ("state", saveState ()).toByteArray ());
+  // Force DX Station Map to left dock on first run of each new version.
+  // restoreState() from an older session always puts it back at bottom.
+  {
+    const QString vkey = "dxMapLayoutVersion";
+    const QString curVer = "3.1.0-left";
+    if (m_settings->value(vkey).toString() != curVer && m_dxMapDock) {
+      m_dxMapDock->hide();
+      removeDockWidget(m_dxMapDock);
+      addDockWidget(Qt::LeftDockWidgetArea, m_dxMapDock);
+      m_dxMapDock->setMinimumSize(280, 220);
+      m_dxMapDock->show();
+      m_settings->setValue(vkey, curVer);
+    }
+  }
   ui->dxCallEntry->setText (m_settings->value ("DXcall", QString {}).toString ());
   ui->dxGridEntry->setText (m_settings->value ("DXgrid", QString {}).toString ());
   m_path = m_settings->value("MRUdir", m_config.save_directory ().absolutePath ()).toString ();
@@ -15533,9 +15547,94 @@ void MainWindow::on_actionDark_mode_triggered() {
         QFile file(":/qdarkstyle/style.qss");
         file.open(QFile::ReadOnly);
         QString styleSheet = QLatin1String(file.readAll());
+
+        // WSJT-Y teal accent overlay — applied on top of QDarkStyleSheet
+        styleSheet += R"(
+QMainWindow { background: #060b12; }
+QDockWidget {
+    background: #080e18;
+    border: 1px solid #0d2035;
+}
+QDockWidget::title {
+    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+        stop:0 #0a2040, stop:1 #06151f);
+    color: #00d4ff;
+    padding: 4px 8px;
+    font-weight: bold;
+    font-size: 11px;
+    border-bottom: 1px solid #00608a;
+}
+QDockWidget::close-button, QDockWidget::float-button {
+    background: transparent;
+    border: none;
+}
+QTabWidget::pane { border: 1px solid #0d2035; }
+QTabBar::tab {
+    background: #0a1a28;
+    color: #6ea8c8;
+    padding: 4px 10px;
+    border: 1px solid #0d2035;
+    border-bottom: none;
+    font-size: 10px;
+}
+QTabBar::tab:selected {
+    background: #0d2540;
+    color: #00d4ff;
+    border-bottom: 2px solid #00a8cc;
+}
+QMenuBar { background: #070c14; border-bottom: 1px solid #0d2035; }
+QMenuBar::item:selected { background: #0a2040; color: #00d4ff; }
+QMenu { background: #080e18; border: 1px solid #0d2035; }
+QMenu::item:selected { background: #0a2540; color: #00d4ff; }
+QScrollBar:vertical {
+    background: #060b12;
+    width: 8px;
+}
+QScrollBar::handle:vertical {
+    background: #0d3050;
+    border-radius: 4px;
+    min-height: 20px;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QGroupBox {
+    border: 1px solid #0d2035;
+    margin-top: 6px;
+    font-size: 10px;
+    color: #6ea8c8;
+}
+QGroupBox::title {
+    color: #00a8cc;
+    subcontrol-origin: margin;
+    padding: 0 4px;
+}
+QStatusBar { background: #060b12; color: #4a7a9a; border-top: 1px solid #0d2035; }
+QPushButton {
+    background: #0a1e30;
+    border: 1px solid #1a4060;
+    color: #8ac8e0;
+    padding: 3px 8px;
+    border-radius: 3px;
+}
+QPushButton:hover { background: #0d2840; color: #00d4ff; border-color: #0080b0; }
+QPushButton:pressed { background: #0a1828; }
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+    background: #070c14;
+    border: 1px solid #0d2035;
+    color: #a0c8e0;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
+QLineEdit:focus, QComboBox:focus { border-color: #00608a; }
+QLabel { color: #8ab8d0; }
+QCheckBox { color: #8ab8d0; }
+QCheckBox::indicator:checked {
+    background: #006080;
+    border: 1px solid #00a0c0;
+}
+)";
         qApp->setStyleSheet(styleSheet);
-        labAz.setStyleSheet ("QLabel{background-color: #005555; padding-left: 10px; padding-right: 10px}");
-        qso_count.setStyleSheet ("QLabel{background-color: #005555; padding-left: 10px; padding-right: 10px}");
+        labAz.setStyleSheet("QLabel{background-color: #005555; padding-left: 10px; padding-right: 10px}");
+        qso_count.setStyleSheet("QLabel{background-color: #005555; padding-left: 10px; padding-right: 10px}");
         initialize_fonts();
     } else {
         if (m_zdebug) log("Stylesheet: LIGHT");
