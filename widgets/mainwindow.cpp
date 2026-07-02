@@ -663,6 +663,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   if (!m_config.my_grid().isEmpty())
       m_dxMap->setHomeGrid(m_config.my_grid());
 
+  // Click a station dot on the map → tune Rx and populate DX call/grid fields
+  connect(m_dxMap, &DXStationMap::stationClicked,
+          this, &MainWindow::on_dxMapStationClicked);
+
   connect (m_fastGraph.data (), &FastGraph::fastPick, this, &MainWindow::fastPick);
 
   connect (this, &MainWindow::finished, m_wideGraph.data (), &WideGraph::close);
@@ -5732,7 +5736,8 @@ void MainWindow::readFromStdout()                             //readFromStdout
                   " " + m_config.my_callsign().trimmed());
               PlottedStation ps;
               ps.call = deCall; ps.grid = grid.trimmed().left(4);
-              ps.snr = 0; ps.isCQ = isCQ; ps.forMe = forMe;
+              ps.snr = 0; ps.freqHz = decodedtext.frequencyOffset();
+              ps.isCQ = isCQ; ps.forMe = forMe;
               if (!ps.grid.isEmpty())
                 m_dxMap->addStation(ps);
             }
@@ -16026,3 +16031,22 @@ void MainWindow::execCmd(QString cmd) {
 }
 
 
+
+void MainWindow::on_dxMapStationClicked(QString call, int freqHz, QString grid)
+{
+    // Tune Rx to the station's audio frequency
+    if (freqHz > 0 && ui->RxFreqSpinBox->isEnabled()) {
+        ui->RxFreqSpinBox->setValue(freqHz);
+        on_RxFreqSpinBox_valueChanged(freqHz);
+    }
+
+    // Populate DX call + grid fields — same as double-clicking a decode line
+    if (!call.isEmpty())  ui->dxCallEntry->setText(call);
+    if (!grid.isEmpty())  ui->dxGridEntry->setText(grid.left(4));
+
+    // Generate standard messages ready to TX
+    genStdMsgs(call);
+
+    // Lookup callsign data (DXCC, distance, bearing)
+    on_dxCallEntry_returnPressed();
+}

@@ -11,10 +11,11 @@ static constexpr double DEG = M_PI / 180.0;
 DXStationMap::DXStationMap(QWidget *parent)
   : QWidget(parent)
 {
-    setMinimumSize(200, 140);
+    setMinimumSize(280, 200);
     setMouseTracking(true);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    setStyleSheet("background: #080d14;");
+    // Load photorealistic world map background from Qt resources
+    m_worldMap.load(":/images/worldmap.jpg");
 }
 
 void DXStationMap::setHomeGrid(QString const& grid)
@@ -31,6 +32,9 @@ void DXStationMap::showStation(QString const& call, QString const& grid,
     m_selGrid = grid.toUpper().left(4);
     m_selSNR  = snr;
     gridToLatLon(m_selGrid, m_selLat, m_selLon);
+    // freqHz updated by addStation when the same callsign exists
+    for (auto const& s : m_stations)
+        if (s.call == call) { m_selFreqHz = s.freqHz; break; }
 
     PlottedStation s;
     s.call = call; s.grid = m_selGrid; s.snr = snr; s.isCQ = isCQ; s.forMe = forMe;
@@ -211,58 +215,24 @@ void DXStationMap::paintEvent(QPaintEvent *)
     const int w = width(), h = height(), mapH = h - 14;
     if (w < 20 || mapH < 20) return;
 
-    // ── Background gradient ──────────────────────────────────────────────────
-    for (int y = 0; y < mapH; ++y) {
-        const double t = double(y) / mapH;
-        const double s = 4.0 * t * (1.0 - t);
-        p.fillRect(0, y, w, 1, QColor(int(3+s*14), int(7+s*20), int(18+s*38)));
-    }
-
-    // ── Land-field lookup (built once) ───────────────────────────────────────
-    static const QSet<QString> landSet = []() -> QSet<QString> {
-        static const char *f[] = {
-            "IA","IB","IC","ID","IE","IF","IG","IH","II","IJ","IK","IL","IM","IN","IO","IP","IQ","IR",
-            "JA","JB","JC","JD","JE","JF","JG","JH","JI","JJ","JK","JL","JM","JN","JO","JP","JQ","JR",
-            "KA","KB","KC","KD","KE","KF","KG","KH","KI","KJ","KK","KL","KM","KN","KO","KP",
-            "LA","LB","LC","LD","LE","LF","LG","LH","LI","LJ","LK","LL","LM","LN","LO","LP",
-            "MA","MB","MC","MD","ME","MF","MG","MH","MI","MJ","MK","ML","MM","MN","MO","MP",
-            "NA","NB","NC","ND","NE","NF","NG","NH","NI","NJ","NK","NL","NM","NN","NO","NP",
-            "OA","OB","OC","OD","OE","OF","OG","OH","OI","OJ","OK","OL","OM","ON","OO","OP",
-            "PA","PB","PC","PD","PE","PF","PG","PH","PI","PJ","PK","PL","PM","PN","PO","PP",
-            "HA","HB","HC","HD","HE","HF","HG","HH","HI","HJ","HK","HL","HM","HN","HO","HP",
-            "GA","GB","GC","GD","GE","GF","GG","GH","GI","GJ","GK","GL","GM","GN","GO","GP","GQ",
-            "FA","FB","FC","FD","FE","FF","FG","FH","FI","FJ","FK","FL","FM","FN","FO","FP","FQ","FR",
-            "DM","DN","DO","DP","DQ","DR","DL","DK","DJ",
-            "EM","EN","EO","EP","EQ","ER","EL","EK","EJ","EH","EG","EF","EE","ED","EC","EB","EA",
-            "GF","GG","GH","GI","GJ","GK",
-            "QF","QG","QH","RF","RG",
-            nullptr
-        };
-        QSet<QString> s;
-        for (int i = 0; f[i]; ++i) s.insert(QString::fromLatin1(f[i]));
-        return s;
-    }();
-
-    // ── Cell size for font/dot scaling ───────────────────────────────────────
-    const int cellW = w / 18;
-    const int cellH = mapH / 18;
-
-    // ── Land shading ─────────────────────────────────────────────────────────
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(8, 22, 45, 100));
-    for (int fi = 0; fi < 18; ++fi) {
-        for (int li = 0; li < 18; ++li) {
-            QString code = QString("%1%2")
-                .arg(QChar('A'+fi)).arg(QChar('A'+li));
-            if (!landSet.contains(code)) continue;
-            const double lon0 = fi*20.0-180.0, lat0 = li*10.0-90.0;
-            const QPointF tl = project(lon0,       lat0+10.0);
-            const QPointF br = project(lon0+20.0,  lat0);
-            p.drawRect(QRectF(tl, br).normalized());
+    // ── Background: photorealistic world map ─────────────────────────────────
+    if (!m_worldMap.isNull()) {
+        p.drawPixmap(QRect(0, 0, w, mapH),
+                     m_worldMap,
+                     QRect(0, 0, m_worldMap.width(), m_worldMap.height()));
+        // Dark overlay so overlaid elements remain readable
+        p.fillRect(0, 0, w, mapH, QColor(0, 0, 0, 60));
+    } else {
+        for (int y = 0; y < mapH; ++y) {
+            const double t = double(y) / mapH;
+            const double s = 4.0 * t * (1.0 - t);
+            p.fillRect(0, y, w, 1, QColor(int(3+s*14), int(7+s*20), int(18+s*38)));
         }
     }
 
     // ── Grid lines ───────────────────────────────────────────────────────────
+    const int cellW = w / 18;
+    const int cellH = mapH / 18;
     p.setBrush(Qt::NoBrush);
     p.setPen(QPen(QColor(18, 55, 100, 200), 1));
     for (int i = 0; i <= 18; ++i) {
@@ -361,6 +331,32 @@ void DXStationMap::mouseMoveEvent(QMouseEvent *e)
         }
     }
     QWidget::mouseMoveEvent(e);
+}
+
+void DXStationMap::mousePressEvent(QMouseEvent *e)
+{
+    if (e->button() != Qt::LeftButton) return;
+    // Find nearest station dot within 18px
+    double minDist = 18.0;
+    PlottedStation const *found = nullptr;
+    for (auto const& s : m_stations) {
+        double lat, lon;
+        if (!gridToLatLon(s.grid, lat, lon)) continue;
+        const QPointF pt = project(lon, lat);
+        const double dx = e->pos().x() - pt.x();
+        const double dy = e->pos().y() - pt.y();
+        const double dist = std::sqrt(dx*dx + dy*dy);
+        if (dist < minDist) { minDist = dist; found = &s; }
+    }
+    if (found) {
+        m_selCall   = found->call;
+        m_selGrid   = found->grid;
+        m_selSNR    = found->snr;
+        m_selFreqHz = found->freqHz;
+        gridToLatLon(m_selGrid, m_selLat, m_selLon);
+        update();
+        emit stationClicked(found->call, found->freqHz, found->grid);
+    }
 }
 
 void DXStationMap::mouseDoubleClickEvent(QMouseEvent *)

@@ -845,6 +845,7 @@ set (TOP_LEVEL_RESOURCES
   icons/Darwin/wsjtx.iconset/icon_128x128.png
   contrib/gpl-v3-logo.svg
   artwork/splash.png
+  images/worldmap.jpg
   )
 
 set (PALETTE_FILES
