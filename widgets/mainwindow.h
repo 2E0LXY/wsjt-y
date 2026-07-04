@@ -14,6 +14,7 @@
 #include <QDateTime>
 #include <QList>
 #include "widgets/DXStationMap.h"
+#include "widgets/VersionChecker.h"
 #include <QAudioDeviceInfo>
 #include <QScopedPointer>
 #include <QDir>
@@ -445,7 +446,9 @@ private slots:
      void on_actionDark_mode_triggered();
      void on_actionShow_callsigns_on_waterfall_toggled(bool checked);
      void on_actionNMS_decoder_toggled(bool checked);
-     void on_dxMapStationClicked(QString call, int freqHz, QString grid);     void qrzInit();
+     void on_dxMapStationClicked(QString call, int freqHz, QString grid);
+  void onUpdateAvailable(QString tag, QUrl winUrl, QUrl debUrl);
+  void onUpdateBadgeFlash();     void qrzInit();
      void qrzSetSessionKey(QNetworkReply *r) ;
      void qrzResponseHandler(QNetworkReply * r);
      void on_q_button_clicked();
@@ -778,7 +781,12 @@ private:
   void updateWaterfallCallsigns();
   DXStationMap *m_dxMap = nullptr;
   QDockWidget  *m_dxMapDock = nullptr;
-  int           m_dxMapPeriod = 0;   // increments every T/R period; drives station expiry
+  int           m_dxMapPeriod = 0;
+  VersionChecker *m_versionChecker = nullptr;
+  QPushButton    *m_updateBadge = nullptr;
+  QTimer         *m_flashTimer = nullptr;
+  QUrl            m_updateWinUrl, m_updateDebUrl;
+  bool            m_flashState = false;   // increments every T/R period; drives station expiry
   bool m_savedAutoCQfiltering = false;
   bool m_savedProcessTailenders = false;
   bool m_savedAutoCQfilteringValid = false;

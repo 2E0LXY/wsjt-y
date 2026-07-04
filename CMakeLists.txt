@@ -288,6 +288,7 @@ set (wsjtx_CXXSRCS
   widgets/plotter.cpp
   widgets/widegraph.cpp
   widgets/DXStationMap.cpp
+  widgets/VersionChecker.cpp
   widgets/echograph.cpp
   widgets/echoplot.cpp
   widgets/fastgraph.cpp

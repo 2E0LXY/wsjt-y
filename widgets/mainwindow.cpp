@@ -12,7 +12,14 @@
 #include <fftw3.h>
 #include <QPair>
 #include <QDockWidget>
+#include <QProgressDialog>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QFile>
+#include <QDir>
+#include <QDesktopServices>
 #include "widgets/DXStationMap.h"
+#include "widgets/VersionChecker.h"
 #include <QApplication>
 #include <QStringListModel>
 #include <QSettings>
@@ -688,6 +695,32 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // Click a station dot on the map → tune Rx and populate DX call/grid fields
   connect(m_dxMap, &DXStationMap::stationClicked,
           this, &MainWindow::on_dxMapStationClicked);
+
+  // ── Auto-updater ─────────────────────────────────────────────────────────
+  m_versionChecker = new VersionChecker(QStringLiteral(VERSION_Z), this);
+  connect(m_versionChecker, &VersionChecker::updateAvailable,
+          this, &MainWindow::onUpdateAvailable);
+
+  // Update badge — hidden until a newer release is found
+  m_updateBadge = new QPushButton(tr("● Update available"), this);
+  m_updateBadge->setVisible(false);
+  m_updateBadge->setFlat(true);
+  m_updateBadge->setStyleSheet(
+      "QPushButton{background:#0f3a1a;border:1px solid #1a6030;"
+      "color:#30d060;font-size:10px;font-weight:bold;padding:2px 8px;"
+      "border-radius:3px;}"
+      "QPushButton:hover{background:#155225;color:#60ff90;}");
+  m_updateBadge->setCursor(Qt::PointingHandCursor);
+  connect(m_updateBadge, &QPushButton::clicked, this, [this]() {
+    onUpdateAvailable(QString{}, m_updateWinUrl, m_updateDebUrl);
+  });
+  statusBar()->addPermanentWidget(m_updateBadge);
+
+  m_flashTimer = new QTimer(this);
+  m_flashTimer->setInterval(600);
+  connect(m_flashTimer, &QTimer::timeout, this, &MainWindow::onUpdateBadgeFlash);
+
+  m_versionChecker->startChecking();
 
   connect (m_fastGraph.data (), &FastGraph::fastPick, this, &MainWindow::fastPick);
 
@@ -15677,6 +15710,72 @@ QCheckBox::indicator:checked {
     border: 1px solid #00a0c0;
 }
 )";
+        // ── Modern UI additions ──────────────────────────────────────────────
+        styleSheet += R"(
+/* Typography */
+QWidget { font-family: 'Segoe UI', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif; }
+QTextBrowser, QPlainTextEdit { font-family: 'Cascadia Code', 'JetBrains Mono', 'Consolas', 'Courier New', monospace; font-size: 11px; }
+
+/* Inputs — rounded */
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+    border-radius: 4px;
+    padding: 3px 6px;
+}
+QComboBox::drop-down { border-left: 1px solid #0d2035; }
+QComboBox::down-arrow { image: none; width: 0; height: 0;
+    border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-top: 5px solid #4a7a9a; margin-right: 4px; }
+
+/* Buttons — rounded, consistent */
+QPushButton { border-radius: 4px; font-size: 11px; padding: 3px 10px; min-height: 20px; }
+QPushButton:disabled { opacity: 0.4; }
+
+/* Tab bar — pill style */
+QTabBar::tab { border-radius: 4px 4px 0 0; margin-right: 2px; font-size: 10px; }
+QTabBar::tab:selected { font-weight: bold; }
+
+/* Group box — cleaner */
+QGroupBox { border-radius: 6px; padding-top: 14px; }
+
+/* Tool tips */
+QToolTip {
+    background: #0a1828;
+    border: 1px solid #0080b0;
+    color: #a0d8f0;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 10px;
+}
+
+/* Status bar */
+QStatusBar::item { border: none; }
+
+/* Splitter handle */
+QSplitter::handle { background: #0d2035; width: 2px; height: 2px; }
+QSplitter::handle:hover { background: #0080b0; }
+
+/* Table / decode browser alternating rows */
+QTextBrowser { selection-background-color: #0d3a5a; selection-color: #e0f4ff; }
+
+/* Progress bar */
+QProgressBar {
+    background: #0a1828;
+    border: 1px solid #0d3050;
+    border-radius: 4px;
+    text-align: center;
+    color: #80c0e0;
+    font-size: 10px;
+}
+QProgressBar::chunk { background: #0060a0; border-radius: 4px; }
+
+/* Slider */
+QSlider::groove:horizontal { background: #0a1828; height: 4px; border-radius: 2px; }
+QSlider::handle:horizontal {
+    background: #0080b0; width: 12px; height: 12px;
+    margin: -4px 0; border-radius: 6px;
+}
+QSlider::handle:horizontal:hover { background: #00a8d8; }
+)";
         qApp->setStyleSheet(styleSheet);
         labAz.setStyleSheet("QLabel{background-color: #005555; padding-left: 10px; padding-right: 10px}");
         qso_count.setStyleSheet("QLabel{background-color: #005555; padding-left: 10px; padding-right: 10px}");
@@ -16089,4 +16188,105 @@ void MainWindow::on_dxMapStationClicked(QString call, int freqHz, QString grid)
 
     // Lookup callsign data (DXCC, distance, bearing)
     on_dxCallEntry_returnPressed();
+}
+
+// ── Version badge flash ───────────────────────────────────────────────────────
+void MainWindow::onUpdateBadgeFlash()
+{
+    m_flashState = !m_flashState;
+    if (m_updateBadge) {
+        m_updateBadge->setStyleSheet(m_flashState
+            ? "QPushButton{background:#1a6030;border:1px solid #30b060;"
+              "color:#80ffb0;font-size:10px;font-weight:bold;padding:2px 8px;"
+              "border-radius:3px;}"
+              "QPushButton:hover{background:#206038;color:#b0ffd0;}"
+            : "QPushButton{background:#0f3a1a;border:1px solid #1a6030;"
+              "color:#30d060;font-size:10px;font-weight:bold;padding:2px 8px;"
+              "border-radius:3px;}"
+              "QPushButton:hover{background:#155225;color:#60ff90;}");
+    }
+}
+
+// ── Auto-update: download and install ────────────────────────────────────────
+void MainWindow::onUpdateAvailable(QString tag, QUrl winUrl, QUrl debUrl)
+{
+    m_updateWinUrl = winUrl;
+    m_updateDebUrl = debUrl;
+
+    // Show / update the badge
+    if (m_updateBadge && !tag.isEmpty()) {
+        m_updateBadge->setText(QString("● Update %1").arg(tag));
+        m_updateBadge->setVisible(true);
+        if (m_flashTimer) m_flashTimer->start();
+        return;   // don't auto-install on first discovery — wait for user click
+    }
+
+    // ── User clicked badge — proceed to download + install ──────────────────
+#if defined(Q_OS_WIN)
+    QUrl url = m_updateWinUrl;
+#else
+    QUrl url = m_updateDebUrl;
+#endif
+    if (!url.isValid()) {
+        QMessageBox::warning(this, tr("Update"),
+            tr("No installer URL found. Visit the releases page to update manually."));
+        return;
+    }
+
+    auto *progress = new QProgressDialog(tr("Downloading update…"), tr("Cancel"), 0, 100, this);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumDuration(0);
+    progress->setValue(0);
+
+    auto *nam = new QNetworkAccessManager(this);
+    QNetworkRequest req{url};
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                     QNetworkRequest::NoLessSafeRedirectPolicy);
+    auto *reply = nam->get(req);
+
+    connect(reply, &QNetworkReply::downloadProgress,
+            [progress](qint64 done, qint64 total) {
+        if (total > 0) progress->setValue(int(done * 100 / total));
+    });
+
+    connect(reply, &QNetworkReply::finished, [=]() {
+        reply->deleteLater();
+        nam->deleteLater();
+        progress->close();
+        progress->deleteLater();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            QMessageBox::critical(this, tr("Update failed"), reply->errorString());
+            return;
+        }
+
+        // Write to temp file
+        QByteArray data = reply->readAll();
+#if defined(Q_OS_WIN)
+        QString outPath = QDir::temp().filePath("wsjty_update.exe");
+#else
+        QString outPath = "/tmp/wsjty_update.deb";
+#endif
+        QFile f{outPath};
+        if (!f.open(QIODevice::WriteOnly)) {
+            QMessageBox::critical(this, tr("Update failed"),
+                tr("Cannot write to %1").arg(outPath));
+            return;
+        }
+        f.write(data);
+        f.close();
+
+#if defined(Q_OS_WIN)
+        // NSIS silent install — app restarts via installer
+        QProcess::startDetached(outPath, {"/S"});
+        QApplication::quit();
+#else
+        // Linux: hand to system package manager (gdebi / Ubuntu Software)
+        QDesktopServices::openUrl(QUrl::fromLocalFile(outPath));
+        QMessageBox::information(this, tr("Update"),
+            tr("Installer opened in package manager. Restart WSJT-Y after installation."));
+#endif
+    });
+
+    connect(progress, &QProgressDialog::canceled, reply, &QNetworkReply::abort);
 }
