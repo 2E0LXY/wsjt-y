@@ -655,15 +655,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
           [this](QPoint const& pos) {
     QMenu m;
     m.addAction(tr("Pin Left"),  [this]{
-      removeDockWidget(m_dxMapDock);
-      addDockWidget(Qt::LeftDockWidgetArea, m_dxMapDock);
-      m_dxMapDock->show();
+      addDockWidget(Qt::LeftDockWidgetArea,  m_dxMapDock);
+      m_dxMapDock->setVisible(true);
       m_settings->setValue("dxMapArea", "left");
     });
     m.addAction(tr("Pin Right"), [this]{
-      removeDockWidget(m_dxMapDock);
       addDockWidget(Qt::RightDockWidgetArea, m_dxMapDock);
-      m_dxMapDock->show();
+      m_dxMapDock->setVisible(true);
       m_settings->setValue("dxMapArea", "right");
     });
     m.addAction(tr("Float (detach)"), [this]{
@@ -697,15 +695,18 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   connect(m_dxMap, &DXStationMap::stationClicked,
           this, &MainWindow::on_dxMapStationClicked);
 
-  // Dock pin from hamburger button — works even when floating
+  // Dock pin from hamburger button — works regardless of floating state.
+  // Qt5 rule: calling addDockWidget() on a floating dock re-docks it correctly.
+  // Do NOT call removeDockWidget first — that detaches it from the main window
+  // entirely before re-adding, which can cause the widget to disappear on some
+  // platforms. setFloating(false) before addDockWidget is also redundant and
+  // can interfere with the geometry calculation.
   connect(m_dxMap, &DXStationMap::pinRequested, this, [this](Qt::DockWidgetArea area) {
     if (area == Qt::NoDockWidgetArea) {
         m_dxMapDock->setFloating(true);
     } else {
-        m_dxMapDock->setFloating(false);
-        removeDockWidget(m_dxMapDock);
-        addDockWidget(area, m_dxMapDock);
-        m_dxMapDock->show();
+        addDockWidget(area, m_dxMapDock);   // re-docks if floating, moves if already docked
+        m_dxMapDock->setVisible(true);
         m_settings->setValue("dxMapArea", area==Qt::LeftDockWidgetArea ? "left" : "right");
     }
   });
