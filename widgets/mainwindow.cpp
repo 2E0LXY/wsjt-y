@@ -638,10 +638,32 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_dxMapDock = new QDockWidget(tr("DX Station Map"), this);
   m_dxMapDock->setObjectName("DXStationMapDock");
   m_dxMapDock->setWidget(m_dxMap);
-  m_dxMapDock->setMinimumHeight(180);
-  m_dxMapDock->setFeatures(QDockWidget::DockWidgetMovable |
-                            QDockWidget::DockWidgetFloatable |
-                            QDockWidget::DockWidgetClosable);
+  m_dxMapDock->setMinimumSize(260, 180);
+  // Lock position — no accidental dragging; right-click title to reposition
+  m_dxMapDock->setFeatures(QDockWidget::DockWidgetClosable |
+                            QDockWidget::DockWidgetFloatable);
+  m_dxMapDock->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(m_dxMapDock, &QWidget::customContextMenuRequested, this,
+          [this](QPoint const& pos) {
+    QMenu m;
+    m.addAction(tr("Pin Left"),  [this]{
+      removeDockWidget(m_dxMapDock);
+      addDockWidget(Qt::LeftDockWidgetArea, m_dxMapDock);
+      m_dxMapDock->show();
+      m_settings->setValue("dxMapArea", "left");
+    });
+    m.addAction(tr("Pin Right"), [this]{
+      removeDockWidget(m_dxMapDock);
+      addDockWidget(Qt::RightDockWidgetArea, m_dxMapDock);
+      m_dxMapDock->show();
+      m_settings->setValue("dxMapArea", "right");
+    });
+    m.addAction(tr("Float (detach)"), [this]{
+      m_dxMapDock->setFloating(true);
+      m_settings->setValue("dxMapArea", "float");
+    });
+    m.exec(m_dxMapDock->mapToGlobal(pos));
+  });
   addDockWidget(Qt::LeftDockWidgetArea, m_dxMapDock);
 
   // Wire toggle into View menu so it can always be re-opened
@@ -1768,15 +1790,18 @@ void MainWindow::readSettings()
   // Force DX Station Map to left dock on first run of each new version.
   // restoreState() from an older session always puts it back at bottom.
   {
-    const QString vkey = "dxMapLayoutVersion";
-    const QString curVer = "3.1.0-left";
-    if (m_settings->value(vkey).toString() != curVer && m_dxMapDock) {
+    // Restore user-selected dock position (set via right-click title menu)
+    const QString area = m_settings->value("dxMapArea", "left").toString();
+    if (m_dxMapDock) {
       m_dxMapDock->hide();
       removeDockWidget(m_dxMapDock);
-      addDockWidget(Qt::LeftDockWidgetArea, m_dxMapDock);
-      m_dxMapDock->setMinimumSize(280, 220);
+      if (area == "right")
+        addDockWidget(Qt::RightDockWidgetArea, m_dxMapDock);
+      else if (area == "float")
+        { addDockWidget(Qt::LeftDockWidgetArea, m_dxMapDock); m_dxMapDock->setFloating(true); }
+      else
+        addDockWidget(Qt::LeftDockWidgetArea, m_dxMapDock);
       m_dxMapDock->show();
-      m_settings->setValue(vkey, curVer);
     }
   }
   ui->dxCallEntry->setText (m_settings->value ("DXcall", QString {}).toString ());

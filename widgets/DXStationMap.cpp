@@ -15,7 +15,7 @@ DXStationMap::DXStationMap(QWidget *parent)
     setMouseTracking(true);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     // Load photorealistic world map background from Qt resources
-    m_worldMap.load(":/images/worldmap.jpg");
+    m_worldMap.load(":/worldmap.jpg");
 }
 
 void DXStationMap::setHomeGrid(QString const& grid)
@@ -230,11 +230,12 @@ void DXStationMap::paintEvent(QPaintEvent *)
         }
     }
 
-    // ── Grid lines ───────────────────────────────────────────────────────────
+    // ── Grid lines — dimmer when satellite photo loaded ─────────────────────
+    const bool hasSatImg = !m_worldMap.isNull();
     const int cellW = w / 18;
     const int cellH = mapH / 18;
     p.setBrush(Qt::NoBrush);
-    p.setPen(QPen(QColor(18, 55, 100, 200), 1));
+    p.setPen(QPen(hasSatImg ? QColor(80,140,200,45) : QColor(18,55,100,200), 1));
     for (int i = 0; i <= 18; ++i) {
         const double lon = i*20.0-180.0;
         p.drawLine(project(lon,-90), project(lon,90));
@@ -244,10 +245,9 @@ void DXStationMap::paintEvent(QPaintEvent *)
         p.drawLine(project(-180,lat), project(180,lat));
     }
 
-    // ── Field labels — only when cells are tall enough ───────────────────────
-    // Font size strictly bounded by cell height so labels never overlap.
+    // ── Field labels — suppressed when satellite image active ────────────────
     const int fontSize = qBound(4, cellH/2 - 1, cellW/3);
-    if (cellH >= 12 && fontSize >= 4) {
+    if (!hasSatImg && cellH >= 12 && fontSize >= 4) {
         p.setFont(QFont("sans-serif", fontSize));
         p.setPen(QColor(30, 80, 145, 170));
         const QFontMetrics fm(p.font());
