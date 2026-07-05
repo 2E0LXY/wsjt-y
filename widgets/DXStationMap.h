@@ -46,6 +46,7 @@ protected:
     void resizeEvent(QResizeEvent *) override;
     void mousePressEvent(QMouseEvent *) override;
     void mouseDoubleClickEvent(QMouseEvent *) override;
+    void mouseReleaseEvent(QMouseEvent *) override;
     void mouseMoveEvent(QMouseEvent *) override;
 
 private slots:
@@ -79,9 +80,12 @@ private:
 
     // ── Zoom / pan ────────────────────────────────────────────────────────────
     void wheelEvent(QWheelEvent *e) override;
-    double  m_zoom = 1.0;              // 1.0 = world view; up to 8.0
-    double  m_panLon = 0.0;            // centre longitude
-    double  m_panLat = 20.0;           // centre latitude
+    double  m_zoom = 1.0;
+    double  m_panLon = 0.0;
+    double  m_panLat = 20.0;
+    QPoint  m_dragStartPos;
+    double  m_dragPanLon = 0.0;
+    double  m_dragPanLat = 20.0;
 
     // ── Animation ─────────────────────────────────────────────────────────────
     QTimer *m_animTimer = nullptr;

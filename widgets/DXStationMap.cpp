@@ -447,14 +447,29 @@ void DXStationMap::paintEvent(QPaintEvent *)
 void DXStationMap::wheelEvent(QWheelEvent *e)
 {
     const double delta = e->angleDelta().y() > 0 ? 1.25 : 0.80;
+    const int mapH = height() - INFO_H;
+    const double w = width();
+
+    // Compute world position under cursor using CURRENT zoom (inverse-project).
+    // cnx/cny are normalised world coords (0..1 range).
+    const double pnx_old = (m_panLon + 180.0) / 360.0;
+    const double pny_old = (90.0 - m_panLat) / 180.0;
+    const double sx = e->position().x(), sy = e->position().y();
+    const double cnx = pnx_old + (sx / w     - pnx_old) / m_zoom;
+    const double cny = pny_old + (sy / mapH   - pny_old) / m_zoom;
+
     m_zoom = qBound(1.0, m_zoom * delta, 8.0);
-    if (m_zoom < 1.01) { m_panLon = 0.0; m_panLat = 20.0; }  // reset pan at world view
-    else {
-        // Pan to keep clicked point under cursor
-        const int mapH = height() - INFO_H;
-        const double w = width();
-        m_panLon = (e->position().x() / w) * 360.0 - 180.0;
-        m_panLat = 90.0 - (e->position().y() / mapH) * 180.0;
+
+    if (m_zoom <= 1.01) {
+        m_panLon = 0.0; m_panLat = 20.0;
+    } else {
+        // Solve for new pan that keeps the cursor on the same world point.
+        // From project(): sx/w = pnx_new + (cnx - pnx_new) * zoom_new
+        // => pnx_new = (sx/w - cnx * zoom_new) / (1 - zoom_new)
+        const double pnx_new = (sx / w     - cnx * m_zoom) / (1.0 - m_zoom);
+        const double pny_new = (sy / mapH  - cny * m_zoom) / (1.0 - m_zoom);
+        m_panLon = qBound(-180.0, pnx_new * 360.0 - 180.0, 180.0);
+        m_panLat = qBound( -85.0, 90.0 - pny_new * 180.0,   85.0);
     }
     update();
 }
@@ -468,8 +483,22 @@ void DXStationMap::resizeEvent(QResizeEvent *e)
     update();
 }
 
+void DXStationMap::mouseReleaseEvent(QMouseEvent *e)
+{
+    if (e->button() == Qt::RightButton) setCursor(Qt::ArrowCursor);
+    QWidget::mouseReleaseEvent(e);
+}
+
 void DXStationMap::mousePressEvent(QMouseEvent *e)
 {
+    if (e->button() == Qt::RightButton) {
+        // Start pan drag
+        m_dragStartPos = e->pos();
+        m_dragPanLon   = m_panLon;
+        m_dragPanLat   = m_panLat;
+        setCursor(Qt::ClosedHandCursor);
+        return;
+    }
     if (e->button()!=Qt::LeftButton) return;
     const int mapH=height()-INFO_H;
     if (e->pos().y()>mapH) return;   // click in info panel — ignore for dot selection
@@ -497,6 +526,19 @@ void DXStationMap::mouseDoubleClickEvent(QMouseEvent *) { clearStations(); }
 void DXStationMap::mouseMoveEvent(QMouseEvent *e)
 {
     const int mapH=height()-INFO_H;
+
+    if (e->buttons() & Qt::RightButton) {
+        // Drag-to-pan: one screen-pixel movement = 1/zoom world-pixels
+        const double dx = e->pos().x() - m_dragStartPos.x();
+        const double dy = e->pos().y() - m_dragStartPos.y();
+        const double lonPerPx  = 360.0 / width()  / m_zoom;
+        const double latPerPx  = 180.0 / mapH      / m_zoom;
+        m_panLon = qBound(-180.0, m_dragPanLon - dx * lonPerPx, 180.0);
+        m_panLat = qBound( -85.0, m_dragPanLat + dy * latPerPx,  85.0);
+        update();
+        return;
+    }
+
     if (e->pos().y()>=mapH) return;
     const double lon=(double(e->pos().x())/width())*360.0-180.0;
     const double lat=90.0-(double(e->pos().y())/mapH)*180.0;
