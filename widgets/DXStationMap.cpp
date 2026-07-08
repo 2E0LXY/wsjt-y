@@ -103,8 +103,11 @@ void DXStationMap::showStation(QString const& call, QString const& grid, int snr
 
 void DXStationMap::clearStations()
 {
-    m_stations.clear(); m_selCall.clear(); m_qrzData=QrzRecord{};
-    m_photoLbl->setVisible(false);
+    m_stations.clear();
+    m_selCall.clear(); m_selGrid.clear();
+    m_selSNR=0; m_selFreqHz=0; m_selLat=0.0; m_selLon=0.0;
+    m_qrzData=QrzRecord{};
+    if(m_photoLbl) m_photoLbl->setVisible(false);
     update();
 }
 
@@ -379,12 +382,9 @@ void DXStationMap::paintEvent(QPaintEvent *)
     p.drawLine(project(-180,0),project(180,0));
     p.drawLine(project(0,-90),project(0,90));
 
-    // Selected station highlights
-    if (!m_selGrid.isEmpty()) {
-        drawGridSquare(p,m_selGrid.left(2),QColor(31,111,235,35),QColor(40,130,255,140),1);
-        if (m_selGrid.length()>=4)
-            drawGridSquare(p,m_selGrid,QColor(77,166,255,60),QColor(100,200,255),2);
-    }
+    // 4-char minor square only — no large 20°×10° field rect
+    if (!m_selGrid.isEmpty() && m_selGrid.length()>=4)
+        drawGridSquare(p,m_selGrid,QColor(77,166,255,70),QColor(100,200,255),2);
 
     // All station dots with animation
     const double dotR = qMax(3.0, cellW * 0.12);
@@ -485,19 +485,18 @@ void DXStationMap::resizeEvent(QResizeEvent *e)
 
 void DXStationMap::mouseReleaseEvent(QMouseEvent *e)
 {
-    if (e->button() == Qt::RightButton) setCursor(Qt::ArrowCursor);
+    if (e->button()==Qt::MiddleButton || (e->button()==Qt::LeftButton && (e->modifiers()&Qt::ControlModifier)))
+        setCursor(Qt::ArrowCursor);
     QWidget::mouseReleaseEvent(e);
 }
 
 void DXStationMap::mousePressEvent(QMouseEvent *e)
 {
-    if (e->button() == Qt::RightButton) {
-        // Start pan drag
-        m_dragStartPos = e->pos();
-        m_dragPanLon   = m_panLon;
-        m_dragPanLat   = m_panLat;
-        setCursor(Qt::ClosedHandCursor);
-        return;
+    // Pan: middle-click drag OR Ctrl+left-drag
+    if (e->button()==Qt::MiddleButton ||
+        (e->button()==Qt::LeftButton && (e->modifiers()&Qt::ControlModifier))) {
+        m_dragStartPos=e->pos(); m_dragPanLon=m_panLon; m_dragPanLat=m_panLat;
+        setCursor(Qt::ClosedHandCursor); return;
     }
     if (e->button()!=Qt::LeftButton) return;
     const int mapH=height()-INFO_H;
@@ -527,16 +526,13 @@ void DXStationMap::mouseMoveEvent(QMouseEvent *e)
 {
     const int mapH=height()-INFO_H;
 
-    if (e->buttons() & Qt::RightButton) {
-        // Drag-to-pan: one screen-pixel movement = 1/zoom world-pixels
-        const double dx = e->pos().x() - m_dragStartPos.x();
-        const double dy = e->pos().y() - m_dragStartPos.y();
-        const double lonPerPx  = 360.0 / width()  / m_zoom;
-        const double latPerPx  = 180.0 / mapH      / m_zoom;
-        m_panLon = qBound(-180.0, m_dragPanLon - dx * lonPerPx, 180.0);
-        m_panLat = qBound( -85.0, m_dragPanLat + dy * latPerPx,  85.0);
-        update();
-        return;
+    if (e->buttons()&Qt::MiddleButton ||
+        (e->buttons()&Qt::LeftButton && (e->modifiers()&Qt::ControlModifier))) {
+        const double dx=e->pos().x()-m_dragStartPos.x();
+        const double dy=e->pos().y()-m_dragStartPos.y();
+        m_panLon=qBound(-180.0, m_dragPanLon-dx*360.0/width()/m_zoom, 180.0);
+        m_panLat=qBound( -85.0, m_dragPanLat+dy*180.0/(height()-INFO_H)/m_zoom, 85.0);
+        update(); return;
     }
 
     if (e->pos().y()>=mapH) return;

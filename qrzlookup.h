@@ -40,7 +40,7 @@ private:
     QString m_user, m_pass, m_sessionKey, m_pendingCall;
     QrzRecord m_pendingRecord;
     QNetworkAccessManager m_sessionNam, m_lookupNam, m_photoNam;
-    static constexpr char URL[] = "https://xmldata.qrz.com/xml/current/";
+    static constexpr char URL[] = "http://xmldata.qrz.com/xml/current/";
 };
 
 #endif
