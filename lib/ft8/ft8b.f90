@@ -101,6 +101,8 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
   twopi=8.0*atan(1.0)
   delfbest=0.
   ibest=0
+  ibest_ifr=0                              !WSJT-Y: for parabolic freq interpolation
+  sync_m=0.0; sync_p=0.0; delf_m=0.0; delf_0=0.0; delf_p=0.0
 
   call timer('ft8_down',0)
   call ft8_downsample(dd0,newdat,f1,cd0)   !Mix f1 to baseband and downsample
@@ -116,7 +118,7 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
      endif
   enddo
 
-! Now peak up in frequency
+! Now peak up in frequency — WSJT-Y: parabolic interpolation between 0.5 Hz steps
   smax=0.0
   do ifr=-5,5                              !Search over +/- 2.5 Hz
     delf=ifr*0.5
@@ -130,8 +132,21 @@ subroutine ft8b(dd0,newdat,nQSOProgress,nfqso,nftx,ndepth,nzhsym,lapon,     &
     if( sync .gt. smax ) then
       smax=sync
       delfbest=delf
+      ibest_ifr=ifr
     endif
   enddo
+! Sub-sample parabolic refinement of frequency peak (between 0.5 Hz grid points)
+  if(ibest_ifr.gt.-5 .and. ibest_ifr.lt.5) then
+    delf_m=real(ibest_ifr-1)*0.5; delf_0=real(ibest_ifr)*0.5; delf_p=real(ibest_ifr+1)*0.5
+    dphi=twopi*delf_m*dt2; phi=0.0
+    do i=1,32; ctwk(i)=cmplx(cos(phi),sin(phi)); phi=mod(phi+dphi,twopi); enddo
+    call sync8d(cd0,ibest,ctwk,1,sync_m)
+    dphi=twopi*delf_p*dt2; phi=0.0
+    do i=1,32; ctwk(i)=cmplx(cos(phi),sin(phi)); phi=mod(phi+dphi,twopi); enddo
+    call sync8d(cd0,ibest,ctwk,1,sync_p)
+    denom=2.0*(2.0*smax-sync_m-sync_p)
+    if(abs(denom).gt.1.0e-10) delfbest=delf_0+(sync_p-sync_m)*0.5/denom
+  endif
   a=0.0
   a(1)=-delfbest
   call twkfreq1(cd0,NP2,fs2,a,cd0)
