@@ -111,12 +111,6 @@ jobs:
           cd build
           ninja -j$(nproc)
 
-      - name: Bundle OpenSSL DLLs for Qt5 HTTPS (QRZ XML)
-        run: |
-          for dll in /mingw64/bin/libssl-*.dll /mingw64/bin/libcrypto-*.dll; do
-            [ -f "$dll" ] && cp "$dll" build/ && echo "Bundled $(basename $dll)"
-          done
-
       - name: Package (NSIS installer)
         run: |
           cd build

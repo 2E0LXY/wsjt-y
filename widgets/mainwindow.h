@@ -15,6 +15,7 @@
 #include <QList>
 #include "widgets/DXStationMap.h"
 #include "widgets/VersionChecker.h"
+#include "widgets/CallRoster.h"
 #include <QAudioDeviceInfo>
 #include <QScopedPointer>
 #include <QDir>
@@ -782,7 +783,9 @@ private:
   DXStationMap *m_dxMap = nullptr;
   QDockWidget  *m_dxMapDock = nullptr;
   int           m_dxMapPeriod = 0;
-  bool          m_dxMapInitDone = false;  // suppress map updates during startup restore
+  bool          m_dxMapInitDone = false;
+  CallRoster   *m_callRoster = nullptr;
+  QDockWidget  *m_callRosterDock = nullptr;  // suppress map updates during startup restore
   VersionChecker *m_versionChecker = nullptr;
   QPushButton    *m_updateBadge = nullptr;
   QTimer         *m_flashTimer = nullptr;

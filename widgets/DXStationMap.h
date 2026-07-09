@@ -97,8 +97,9 @@ private:
 
     // ── Overlay widgets ───────────────────────────────────────────────────────
     QPushButton *m_clearBtn = nullptr;
-    QPushButton *m_menuBtn  = nullptr;   // hamburger — dock positioning
-    QLabel      *m_photoLbl = nullptr;   // QRZ station photo
+    QPushButton *m_menuBtn  = nullptr;
+    QPushButton *m_homeBtn  = nullptr;   // reset zoom/pan to world view
+    QLabel      *m_photoLbl = nullptr;
 };
 
 #endif

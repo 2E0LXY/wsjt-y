@@ -80,7 +80,7 @@ set (PROJECT_MANUAL_DIRECTORY_URL https://github.com/2E0LXY/wsjt-y)
 set (PROJECT_SAMPLES_URL https://sourceforge.net/projects/wsjt/files/)
 #set (PROJECT_SAMPLES_UPLOAD_DEST frs.sourceforge.net:/home/frs/project/wsjt/)
 # WSJT-Z mod version suffix shown in UI and package metadata.
-set (VERSION_Z "3.2.6")
+set (VERSION_Z "3.3.0")
 message (STATUS "******************************************************")
 message (STATUS "Building ${PROJECT_BUNDLE_NAME} ${VERSION_Z} (base WSJT-X ${PROJECT_VERSION}) for ${CMAKE_SYSTEM_NAME}-${PROJECT_ARCHITECTURE}")
 message (STATUS "******************************************************")
@@ -289,6 +289,7 @@ set (wsjtx_CXXSRCS
   widgets/widegraph.cpp
   widgets/DXStationMap.cpp
   widgets/VersionChecker.cpp
+  widgets/CallRoster.cpp
   qrzlookup.cpp
   widgets/echograph.cpp
   widgets/echoplot.cpp

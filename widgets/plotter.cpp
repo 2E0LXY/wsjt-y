@@ -928,6 +928,14 @@ void CPlotter::mouseMoveEvent (QMouseEvent * event)
 
 void CPlotter::mouseReleaseEvent (QMouseEvent * event)
 {
+  // Right-click directly sets Tx frequency (WSJT-X Improved feature)
+  if (Qt::RightButton == event->button() && event->pos().y() >= 30) {
+    int x = qBound(0, event->x(), m_Size.width());
+    int newTxFreq = int(FreqfromX(x) + 0.5);
+    emit setFreq1(m_rxFreq, newTxFreq);   // keep Rx, change Tx only
+    return;
+  }
+
   if (Qt::LeftButton == event->button()) {
     int x=event->x();
     if(x<0) x=0;

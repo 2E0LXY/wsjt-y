@@ -43,6 +43,23 @@ DXStationMap::DXStationMap(QWidget *parent)
     m_clearBtn->setCursor(Qt::ArrowCursor);
     connect(m_clearBtn, &QPushButton::clicked, this, &DXStationMap::clearStations);
 
+    // Home button — resets zoom/pan to world view centred on home QTH
+    auto *homeBtn = new QPushButton("⌂", this);
+    homeBtn->setFixedSize(22, 20);
+    homeBtn->setStyleSheet(
+        "QPushButton{background:#0a1828;border:1px solid #1a4060;color:#4a8ab0;"
+        "font-size:13px;border-radius:3px;}"
+        "QPushButton:hover{background:#0d2840;color:#3fb950;}");
+    homeBtn->setToolTip("Reset to world view / centre on home QTH");
+    homeBtn->move(width() - 91, 2);
+    connect(homeBtn, &QPushButton::clicked, this, [this, homeBtn](){
+        m_zoom = 1.0; m_panLon = 0.0; m_panLat = 20.0;
+        homeBtn->move(width()-91, 2);
+        update();
+    });
+    // keep homeBtn repositioned on resize — store as member
+    m_homeBtn = homeBtn;
+
     // Animation timer — drives CQ flash + calling-user radar halo
     m_animTimer = new QTimer(this);
     m_animTimer->setInterval(500);
@@ -382,8 +399,8 @@ void DXStationMap::paintEvent(QPaintEvent *)
     p.drawLine(project(-180,0),project(180,0));
     p.drawLine(project(0,-90),project(0,90));
 
-    // 4-char minor square only — no large 20°×10° field rect
-    if (!m_selGrid.isEmpty() && m_selGrid.length()>=4)
+    // 4-char minor square only — only when a station is actually selected
+    if (!m_selGrid.isEmpty() && !m_selCall.isEmpty() && m_selGrid.length()>=4)
         drawGridSquare(p,m_selGrid,QColor(77,166,255,70),QColor(100,200,255),2);
 
     // All station dots with animation
@@ -433,7 +450,7 @@ void DXStationMap::paintEvent(QPaintEvent *)
     p.setRenderHint(QPainter::Antialiasing, false);
 
     // Arc + markers
-    if (!m_selGrid.isEmpty()&&!m_homeGrid.isEmpty())
+    if (!m_selGrid.isEmpty()&&!m_homeGrid.isEmpty()&&!m_selCall.isEmpty())
         drawArc(p,m_homeLat,m_homeLon,m_selLat,m_selLon);
     drawHomeMarker(p);
     if (!m_selCall.isEmpty())
@@ -478,6 +495,7 @@ void DXStationMap::resizeEvent(QResizeEvent *e)
 {
     QWidget::resizeEvent(e);
     if (m_clearBtn) m_clearBtn->move(width()-66, 2);
+    if (m_homeBtn)  m_homeBtn->move(width()-91, 2);
     if (m_menuBtn)  m_menuBtn->move(2, 2);
     if (m_photoLbl) m_photoLbl->move(6, height()-INFO_H+6);
     update();

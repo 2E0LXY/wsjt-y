@@ -12,6 +12,8 @@
 #include <fftw3.h>
 #include <QPair>
 #include <QDockWidget>
+#include <QToolBar>
+#include <QToolButton>
 #include <QProgressDialog>
 #include <QNetworkRequest>
 #include <QNetworkReply>
@@ -20,6 +22,7 @@
 #include <QDesktopServices>
 #include "widgets/DXStationMap.h"
 #include "widgets/VersionChecker.h"
+#include "widgets/CallRoster.h"
 #include "qrzlookup.h"
 #include <QApplication>
 #include <QStringListModel>
@@ -725,6 +728,63 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     m_dxMap->setQrzLookup(nullptr);
     startQrz();
   });
+
+  // ── Call Roster dock (GridTracker-style sortable decode table) ───────────────
+  m_callRoster = new CallRoster(this);
+  if (!m_config.my_grid().isEmpty()) {
+    double rlat, rlon;
+    // Use home grid to set Call Roster distances
+    auto g = m_config.my_grid().toUpper();
+    rlon = (g[0].unicode()-'A')*20.0-180.0;
+    rlat = (g[1].unicode()-'A')*10.0-90.0;
+    if (g.length()>=4){rlon+=(g[2].unicode()-'0')*2;rlat+=(g[3].unicode()-'0');rlon+=1;rlat+=0.5;}
+    m_callRoster->setHomePos(rlat, rlon);
+  }
+  m_callRosterDock = new QDockWidget(tr("Call Roster"), this);
+  m_callRosterDock->setObjectName("CallRosterDock");
+  m_callRosterDock->setWidget(m_callRoster);
+  m_callRosterDock->setMinimumWidth(300);
+  m_callRosterDock->setFeatures(QDockWidget::DockWidgetClosable |
+                                  QDockWidget::DockWidgetMovable |
+                                  QDockWidget::DockWidgetFloatable);
+  addDockWidget(Qt::BottomDockWidgetArea, m_callRosterDock);
+  connect(m_callRoster, &CallRoster::callSelected,
+          this, &MainWindow::on_dxMapStationClicked);
+  for (auto *menu : menuBar()->findChildren<QMenu*>()) {
+    if (menu->title().contains("View", Qt::CaseInsensitive)) {
+      auto *act = m_callRosterDock->toggleViewAction();
+      act->setText(tr("Call Roster"));
+      menu->addAction(act);
+      break;
+    }
+  }
+
+  // ── Band quick-select toolbar (WSJT-X Improved) ──────────────────────────────
+  {
+    auto *bandBar = addToolBar(tr("Band Select"));
+    bandBar->setObjectName("BandSelectToolbar");
+    bandBar->setMovable(false);
+    bandBar->setStyleSheet(
+        "QToolBar{background:#060b12;border-bottom:1px solid #0d2035;spacing:2px;padding:1px;}"
+        "QToolButton{background:#0a1828;border:1px solid #1a4060;color:#5090b0;"
+        "font-size:10px;font-weight:bold;padding:2px 7px;border-radius:3px;min-width:34px;}"
+        "QToolButton:hover{background:#0d2840;color:#00c8ff;border-color:#0080b0;}");
+    struct Band { const char *label; double freqMHz; };
+    static const Band bands[]={
+        {"160m",1.840},{"80m",3.573},{"60m",5.357},{"40m",7.074},
+        {"30m",10.136},{"20m",14.074},{"17m",18.100},{"15m",21.074},
+        {"12m",24.915},{"10m",28.074},{"6m",50.313},{"2m",144.174}
+    };
+    for (auto const& b : bands) {
+        auto *btn = new QToolButton;
+        btn->setText(b.label);
+        btn->setToolTip(QString("%1 MHz FT8").arg(b.freqMHz));
+        connect(btn, &QToolButton::clicked, this, [this,b](){
+            ui->bandComboBox->setCurrentText(QString(b.label));
+        });
+        bandBar->addWidget(btn);
+    }
+  }
 
   // ── Auto-updater ─────────────────────────────────────────────────────────
   m_versionChecker = new VersionChecker(QStringLiteral(VERSION_Z), this);
@@ -1873,7 +1933,8 @@ void MainWindow::readSettings()
   ui->dxCallEntry->setText (m_settings->value ("DXcall", QString {}).toString ());
   ui->dxGridEntry->setText (m_settings->value ("DXgrid", QString {}).toString ());
   m_dxMapInitDone = true;
-  if (m_dxMap) m_dxMap->clearStations();   // guarantee clean slate — no phantom dots from previous session
+  if (m_dxMap) m_dxMap->clearStations();
+  if (m_callRoster) m_callRoster->clearAll();
   m_path = m_settings->value("MRUdir", m_config.save_directory ().absolutePath ()).toString ();
   m_txFirst = m_settings->value("TxFirst",false).toBool();
   m_autoCQAlternateEvenOddNext = !m_txFirst;
@@ -5111,6 +5172,7 @@ void MainWindow::decodeDone ()
     m_periodDecodes.clear();       // reset per-period dedup
     // Roll the map — expire stations older than 20 T/R periods (~10 min FT8)
     if (m_dxMap) m_dxMap->expireStations(++m_dxMapPeriod, 20);
+    if (m_callRoster) m_callRoster->expireOld(120);  // remove stations not heard in last 2 T/R periods
     // DX Map: don't clear every T/R period — accumulate stations so the map
     // builds a useful picture. addStation() deduplicates by callsign.
     // User double-clicks the map widget to manually clear.
@@ -5838,8 +5900,14 @@ void MainWindow::readFromStdout()                             //readFromStdout
               if (!ps.grid.isEmpty())
                 m_dxMap->addStation(ps);
               else
-                // Try to plot using cached grid from previous CQ decode
                 m_dxMap->tryAddCallsign(deCall, decodedtext.frequencyOffset(), 0, forMe);
+
+              // Call Roster (GridTracker-style table)
+              if (m_callRoster && !deCall.isEmpty())
+                m_callRoster->addDecode(deCall, grid.trimmed().left(4),
+                    decodedtext.snr(), decodedtext.frequencyOffset(),
+                    decodedtext.clean_string().trimmed(),
+                    isCQ, forMe);
             }
 
     QString rawViewLine;
@@ -7285,8 +7353,10 @@ void MainWindow::guiUpdate()
     const QString prevBand = m_currentBand;
     m_currentBand=m_config.bands()->find(m_freqNominal);
     // Clear DX map when band changes
-    if (m_dxMap && m_currentBand != prevBand && !prevBand.isEmpty())
+    if (m_dxMap && m_currentBand != prevBand && !prevBand.isEmpty()) {
         m_dxMap->clearStations();
+        if (m_callRoster) m_callRoster->clearAll();
+    }
     // Z
     /*
     if( SpecOp::HOUND == m_specOp ) {
