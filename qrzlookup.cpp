@@ -106,7 +106,11 @@ void QRZLookup::onLookupReply(QNetworkReply *reply)
     qDebug() << "QRZ record:" << r.call << r.fname << r.name << r.country;
 
     if (r.imageUrl.isValid() && !r.imageUrl.isEmpty()) {
-        QNetworkRequest req{r.imageUrl};
+        // Force HTTP for the photo URL (HTTPS requires OpenSSL on Windows;
+        // files.qrz.com serves images on plain HTTP too)
+        QUrl photoUrl = r.imageUrl;
+        if (photoUrl.scheme() == "https") photoUrl.setScheme("http");
+        QNetworkRequest req{photoUrl};
         req.setHeader(QNetworkRequest::UserAgentHeader,"WSJT-Y");
         m_photoNam.get(req);
         m_pendingRecord = r;

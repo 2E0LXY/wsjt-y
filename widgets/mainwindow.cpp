@@ -16322,14 +16322,23 @@ void MainWindow::on_dxMapStationClicked(QString call, int freqHz, QString grid)
         on_RxFreqSpinBox_valueChanged(freqHz);
     }
 
-    // Populate DX call + grid fields — same as double-clicking a decode line
-    if (!call.isEmpty())  ui->dxCallEntry->setText(call);
-    if (!grid.isEmpty())  ui->dxGridEntry->setText(grid.left(4));
+    // Populate DX call + grid fields
+    if (!call.isEmpty())  { m_deCall = call;  ui->dxCallEntry->setText(call); }
+    if (!grid.isEmpty())  { m_deGrid = grid.left(4); ui->dxGridEntry->setText(grid.left(4)); }
 
-    // Generate standard messages ready to TX
+    // Replicate the full double-click sequence so auto-TX fires correctly
+    m_bDoubleClicked = true;
     genStdMsgs(call);
+    setTxMsg(1);                              // Tx1 = "CALL 2E0LXY IO93" ready to send
+    ui->txFirstCheckBox->setChecked(m_txFirst);
 
-    // Lookup callsign data (DXCC, distance, bearing)
+    // Enable auto-sequencing / Tx (same logic as decode-browser double-click)
+    if (!ui->autoButton->isChecked()) {
+        ui->autoButton->click();              // starts calling the station
+    }
+    if (m_transmitting) m_restart = true;    // restart current TX period if needed
+
+    // Lookup callsign data (DXCC, distance, bearing, Call Info panel)
     on_dxCallEntry_returnPressed();
 }
 
