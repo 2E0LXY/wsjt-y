@@ -4,9 +4,22 @@
 #include <QMouseEvent>
 #include <QFontMetrics>
 #include <QToolTip>
+#include <QRegularExpression>
 #include <cmath>
 
 static constexpr double DEG = M_PI / 180.0;
+
+// Valid Maidenhead locator: 2 field letters (A-R) + 2 square digits (0-9),
+// optionally + 2 subsquare letters (A-X). Rejects report codes ("R-15", "-09"),
+// procedural tokens ("RRR", "73"), and anything else decodedtext's word3/word4
+// capture might hand us that isn't actually a grid square.
+static const QRegularExpression s_gridRe(
+    QStringLiteral("^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$"));
+
+static bool isValidGrid(QString const& grid)
+{
+    return s_gridRe.match(grid).hasMatch();
+}
 
 DXStationMap::DXStationMap(QWidget *parent)
     : QWidget(parent)
@@ -137,7 +150,8 @@ void DXStationMap::clearStations()
 
 void DXStationMap::addStation(PlottedStation const& s)
 {
-    if (!s.grid.isEmpty()) m_callGrid[s.call] = s.grid;  // cache for all-calls plotting
+    if (!isValidGrid(s.grid)) return;  // reject report codes/RRR/73/etc. masquerading as grids
+    m_callGrid[s.call] = s.grid;       // cache for all-calls plotting
     for (auto &e : m_stations) if (e.call==s.call) { e=s; update(); return; }
     m_stations.append(s);
     update();
@@ -151,6 +165,7 @@ void DXStationMap::tryAddCallsign(QString const& call, int freqHz, int snr, bool
     for (auto const& s : m_stations) if (s.call==call) return;
     // Have cached grid?
     if (!m_callGrid.contains(call)) return;
+    if (!isValidGrid(m_callGrid[call])) return;
     PlottedStation ps;
     ps.call=call; ps.grid=m_callGrid[call]; ps.freqHz=freqHz;
     ps.snr=snr; ps.period=m_currentPeriod; ps.isCQ=false; ps.forMe=forMe;
@@ -181,7 +196,7 @@ QPointF DXStationMap::project(double lon, double lat) const
 
 bool DXStationMap::gridToLatLon(QString const& grid, double &lat, double &lon) const
 {
-    if (grid.length()<2) return false;
+    if (!isValidGrid(grid)) return false;
     const auto g = grid.toUpper();
     lon = (g[0].unicode()-'A')*20.0-180.0;
     lat = (g[1].unicode()-'A')*10.0-90.0;
@@ -514,41 +529,64 @@ void DXStationMap::resizeEvent(QResizeEvent *e)
     update();
 }
 
+// Screen-pixel drag distance beyond which a left-button press is treated as a
+// pan gesture rather than a station click.
+static constexpr int PAN_CLICK_THRESHOLD_PX = 4;
+
 void DXStationMap::mouseReleaseEvent(QMouseEvent *e)
 {
     if (e->button()==Qt::MiddleButton || (e->button()==Qt::LeftButton && (e->modifiers()&Qt::ControlModifier)))
         setCursor(Qt::ArrowCursor);
+
+    if (e->button()==Qt::LeftButton && m_leftButtonDown) {
+        const bool wasPanning = m_leftIsPanning;
+        m_leftButtonDown = false;
+        m_leftIsPanning  = false;
+        setCursor(Qt::ArrowCursor);
+
+        // Only treat as a station click if the press never turned into a drag.
+        if (!wasPanning) {
+            const int mapH = height() - INFO_H;
+            if (e->pos().y() <= mapH) {
+                double minDist=18; PlottedStation const *found=nullptr;
+                for (auto const& s:m_stations) {
+                    double lat,lon; if (!gridToLatLon(s.grid,lat,lon)) continue;
+                    const QPointF pt=project(lon,lat);
+                    const double d=hypot(e->pos().x()-pt.x(),e->pos().y()-pt.y());
+                    if (d<minDist) { minDist=d; found=&s; }
+                }
+                if (found) {
+                    m_selCall=found->call; m_selGrid=found->grid;
+                    m_selSNR=found->snr;  m_selFreqHz=found->freqHz;
+                    gridToLatLon(m_selGrid,m_selLat,m_selLon);
+                    m_qrzData=QrzRecord{}; m_photoLbl->setVisible(false);
+                    if (m_qrz) m_qrz->lookup(found->call);
+                    update();
+                    emit stationClicked(found->call,found->freqHz,found->grid);
+                }
+            }
+        }
+    }
     QWidget::mouseReleaseEvent(e);
 }
 
 void DXStationMap::mousePressEvent(QMouseEvent *e)
 {
-    // Pan: middle-click drag OR Ctrl+left-drag
+    // Pan: middle-click drag OR Ctrl+left-drag (immediate)
     if (e->button()==Qt::MiddleButton ||
         (e->button()==Qt::LeftButton && (e->modifiers()&Qt::ControlModifier))) {
         m_dragStartPos=e->pos(); m_dragPanLon=m_panLon; m_dragPanLat=m_panLat;
         setCursor(Qt::ClosedHandCursor); return;
     }
     if (e->button()!=Qt::LeftButton) return;
-    const int mapH=height()-INFO_H;
-    if (e->pos().y()>mapH) return;   // click in info panel — ignore for dot selection
 
-    double minDist=18; PlottedStation const *found=nullptr;
-    for (auto const& s:m_stations) {
-        double lat,lon; if (!gridToLatLon(s.grid,lat,lon)) continue;
-        const QPointF pt=project(lon,lat);
-        const double d=hypot(e->pos().x()-pt.x(),e->pos().y()-pt.y());
-        if (d<minDist) { minDist=d; found=&s; }
-    }
-    if (found) {
-        m_selCall=found->call; m_selGrid=found->grid;
-        m_selSNR=found->snr;  m_selFreqHz=found->freqHz;
-        gridToLatLon(m_selGrid,m_selLat,m_selLon);
-        m_qrzData=QrzRecord{}; m_photoLbl->setVisible(false);
-        if (m_qrz) m_qrz->lookup(found->call);
-        update();
-        emit stationClicked(found->call,found->freqHz,found->grid);
-    }
+    // Plain left button: record a pan candidate. Whether this ends up being a
+    // click (station select, handled in mouseReleaseEvent) or a drag (pan,
+    // handled in mouseMoveEvent) is decided by movement distance.
+    m_dragStartPos = e->pos();
+    m_dragPanLon = m_panLon; m_dragPanLat = m_panLat;
+    m_leftButtonDown = true;
+    m_leftIsPanning  = false;
 }
 
 void DXStationMap::mouseDoubleClickEvent(QMouseEvent *) { clearStations(); }
@@ -557,8 +595,19 @@ void DXStationMap::mouseMoveEvent(QMouseEvent *e)
 {
     const int mapH=height()-INFO_H;
 
-    if (e->buttons()&Qt::MiddleButton ||
-        (e->buttons()&Qt::LeftButton && (e->modifiers()&Qt::ControlModifier))) {
+    const bool ctrlLeftDrag = e->buttons()&Qt::LeftButton && (e->modifiers()&Qt::ControlModifier);
+    const bool middleDrag   = e->buttons()&Qt::MiddleButton;
+    const bool plainLeftDrag = m_leftButtonDown && (e->buttons()&Qt::LeftButton) && !ctrlLeftDrag;
+
+    if (plainLeftDrag && !m_leftIsPanning) {
+        const double dist = hypot(e->pos().x()-m_dragStartPos.x(), e->pos().y()-m_dragStartPos.y());
+        if (dist > PAN_CLICK_THRESHOLD_PX) {
+            m_leftIsPanning = true;
+            setCursor(Qt::ClosedHandCursor);
+        }
+    }
+
+    if (middleDrag || ctrlLeftDrag || (plainLeftDrag && m_leftIsPanning)) {
         const double dx=e->pos().x()-m_dragStartPos.x();
         const double dy=e->pos().y()-m_dragStartPos.y();
         m_panLon=qBound(-180.0, m_dragPanLon-dx*360.0/width()/m_zoom, 180.0);

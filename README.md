@@ -175,5 +175,6 @@ WSJT-Y is distributed under **GNU GPL v3.0**, the same licence as WSJT-X and WSJ
 - WSJT-Z extensions: © SQ9FVE (Mateusz Lubas)  
 - WSJT-Y modifications: © 2E0LXY (Daren, 2025–2026)
 - NMS decoder: © IU8LMC (Carmine Vitiello), GPL-3.0
+- DX Station Map background (`images/worldmap.jpg`): NASA Blue Marble imagery, courtesy Reto Stockli (NASA/GSFC) — public domain (US Government work)
 
 Issues: **https://github.com/2E0LXY/wsjt-zii/issues**

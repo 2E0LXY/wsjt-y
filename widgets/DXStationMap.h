@@ -86,6 +86,8 @@ private:
     QPoint  m_dragStartPos;
     double  m_dragPanLon = 0.0;
     double  m_dragPanLat = 20.0;
+    bool    m_leftButtonDown = false;   // plain left button currently held
+    bool    m_leftIsPanning  = false;   // drag distance exceeded click threshold
 
     // ── Animation ─────────────────────────────────────────────────────────────
     QTimer *m_animTimer = nullptr;
