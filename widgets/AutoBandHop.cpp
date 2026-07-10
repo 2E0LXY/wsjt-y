@@ -14,14 +14,14 @@ static const BandEntry kBands[] = {
     // ── 160m — Deep winter nights only ────────────────────────────────────────
     {   "160m", 1.840,
         22, 4,                              // 22:00–04:00 UTC (wraps midnight)
-        0b000000001111,                     // Nov–Feb (bits 10,11,0,1)
+        0b110000000011,                     // Nov,Dec,Jan,Feb (bits 10,11,0,1)
         3,
         "160m: Winter night / F-layer DX, D-layer absent"
     },
     // ── 80m — Winter nocturnal regional/DX ────────────────────────────────────
     {   "80m",  3.573,
         20, 6,                              // 20:00–06:00 UTC (wraps midnight)
-        0b000000011111,                     // Nov–Mar (bits 10,11,0,1,2)
+        0b110000000111,                     // Nov,Dec,Jan,Feb,Mar (bits 10,11,0,1,2)
         4,
         "80m: Nocturnal winter DX; D-layer gone, F-layer reflects"
     },
@@ -42,21 +42,21 @@ static const BandEntry kBands[] = {
     // ── 20m — King of DX, daytime/equinox ─────────────────────────────────────
     {   "20m",  14.074,
         6, 22,                              // 06:00–22:00 UTC
-        0b011011000111,                     // Mar–May + Sep–Nov (bits 2,3,4 + 8,9,10)
+        0b011100011100,                     // Mar,Apr,May,Sep,Oct,Nov (bits 2,3,4,8,9,10)
         7,
         "20m: Primary DX band; F2 layer, equinox peak"
     },
     // ── 17m — WARC quiet alternative, daytime/equinox ─────────────────────────
     {   "17m",  18.100,
         8, 19,                              // 08:00–19:00 UTC
-        0b011011000111,                     // Mar–May + Sep–Nov
+        0b011100011100,                     // Mar,Apr,May,Sep,Oct,Nov
         6,
         "17m: WARC band; low noise, daytime DX, closes at sunset"
     },
     // ── 15m — Solar-dependent daytime, equinox + solar max ────────────────────
     {   "15m",  21.074,
         8, 18,                              // 08:00–18:00 UTC
-        0b011011000111,                     // Mar–May + Sep–Nov (+ winter solar max)
+        0b011100011100,                     // Mar,Apr,May,Sep,Oct,Nov (+ winter solar max)
         5,
         "15m: F2 DX, SFI>100 needed; excellent path loss at peak"
     },

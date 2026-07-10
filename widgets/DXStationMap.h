@@ -47,6 +47,7 @@ public:
 
 signals:
     void stationClicked(QString call, int freqHz, QString grid);
+    void stationDoubleClicked(QString call, int freqHz, QString grid);
     void pinRequested(Qt::DockWidgetArea area);   // hamburger → mainwindow
 
 protected:

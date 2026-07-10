@@ -14,6 +14,17 @@ CallRoster::CallRoster(QWidget *parent)
     m_filter = new QLineEdit; m_filter->setPlaceholderText("filter callsign / DXCC / continent…");
     m_filter->setStyleSheet("background:#060b12;border:1px solid #0d2035;color:#a0c8e0;padding:2px 4px;");
     topBar->addWidget(m_filter);
+    m_watchInput = new QLineEdit; m_watchInput->setPlaceholderText("watch for callsign…");
+    m_watchInput->setToolTip("When this callsign is seen: row highlights yellow, a notification "
+                              "pops up, WSJT-Y beeps, then QSYs, enters the callsign, and starts calling.");
+    m_watchInput->setMaximumWidth(120);
+    m_watchInput->setStyleSheet("background:#241a06;border:1px solid #4a3a10;color:#e0c860;padding:2px 4px;");
+    connect(m_watchInput, &QLineEdit::textChanged, this, [this](QString const& t) {
+        m_watchCall = t.trimmed().toUpper();
+        m_watchAlerted = false;
+        rebuild();   // repaint highlight immediately if the call is already visible
+    });
+    topBar->addWidget(m_watchInput);
     m_stats = new QLabel("0 calls");
     m_stats->setStyleSheet("color:#4a7a9a;font-size:10px;padding:0 4px;");
     topBar->addWidget(m_stats);
@@ -29,7 +40,13 @@ CallRoster::CallRoster(QWidget *parent)
         t->horizontalHeader()->setSectionsClickable(true);
         t->setSelectionBehavior(QAbstractItemView::SelectRows);
         t->setEditTriggers(QAbstractItemView::NoEditTriggers);
-        t->setSortingEnabled(true);
+        // NOT setSortingEnabled(true): Qt's built-in per-header-click sort
+        // only reorders rows within a single QTableWidget. With two tables
+        // showing a single logical list split in half, that sorted each
+        // table independently against whatever subset it happened to hold
+        // BEFORE the sort — which is why clicking a header looked broken
+        // (each pane sorted itself, not the combined list). We sort
+        // m_entries ourselves in rebuild() before the left/right split.
         t->verticalHeader()->hide();
         t->setShowGrid(false);
         t->setAlternatingRowColors(false);
@@ -47,12 +64,18 @@ CallRoster::CallRoster(QWidget *parent)
     };
     m_tableLeft  = buildTable();
     m_tableRight = buildTable();
+    connect(m_tableLeft->horizontalHeader(),  &QHeaderView::sectionClicked, this, &CallRoster::onHeaderClicked);
+    connect(m_tableRight->horizontalHeader(), &QHeaderView::sectionClicked, this, &CallRoster::onHeaderClicked);
 
     auto *tablesRow = new QHBoxLayout;
     tablesRow->setSpacing(2);
     tablesRow->addWidget(m_tableLeft);
     tablesRow->addWidget(m_tableRight);
     vl->addLayout(tablesRow);
+
+    m_summary = new QLabel("—");
+    m_summary->setStyleSheet("background:#0a1828;color:#5090b0;font-size:10px;padding:2px 6px;border-top:1px solid #0d2035;");
+    vl->addWidget(m_summary);
 
     connect(m_filter, &QLineEdit::textChanged, this, &CallRoster::rebuild);
 
@@ -100,6 +123,10 @@ void CallRoster::addDecode(QString const& call, QString const& grid, int snr,
         e.distKm  = haversineKm(m_homeLat, m_homeLon, lat0, lon0);
         e.bearing = bearingDeg(m_homeLat, m_homeLon, lat0, lon0);
     }
+    if (!m_watchCall.isEmpty() && !m_watchAlerted && call.compare(m_watchCall, Qt::CaseInsensitive) == 0) {
+        m_watchAlerted = true;
+        emit watchedCallSeen(call, freqHz, grid);
+    }
     rebuild();
 }
 
@@ -110,7 +137,11 @@ void CallRoster::expireOld(int maxSeconds)
     const auto cutoff = QDateTime::currentDateTimeUtc().addSecs(-maxSeconds);
     bool changed = false;
     for (auto it = m_entries.begin(); it != m_entries.end(); ) {
-        if (it->lastSeen < cutoff) { it = m_entries.erase(it); changed = true; }
+        if (it->lastSeen < cutoff) {
+            if (!m_watchCall.isEmpty() && it->call.compare(m_watchCall, Qt::CaseInsensitive) == 0)
+                m_watchAlerted = false;
+            it = m_entries.erase(it); changed = true;
+        }
         else ++it;
     }
     if (changed) rebuild();
@@ -121,17 +152,18 @@ void CallRoster::addRowTo(QTableWidget *table, RosterEntry const& e)
     const int row = table->rowCount();
     table->insertRow(row);
 
-    QColor bg;
-    if (e.forMe)      bg = QColor(80,15,15);     // dark red — calling ME
-    else if (e.isCQ)  bg = QColor(8,25,50);      // dark blue — CQ
-    else              bg = QColor(5,12,20);       // default
+    QColor bg, fg;
+    const bool isWatched = !m_watchCall.isEmpty() && e.call.compare(m_watchCall, Qt::CaseInsensitive) == 0;
+    if (isWatched)          { bg = QColor(90,75,10);  fg = QColor(255,230,120); }  // watched call — yellow
+    else if (e.forMe)       { bg = QColor(80,15,15);  fg = QColor(255,120,120); }  // dark red — calling ME
+    else if (e.isCQ)        { bg = QColor(8,25,50);   fg = QColor(100,180,255); }  // dark blue — CQ
+    else                    { bg = QColor(5,12,20); }                              // default
 
     auto item = [&](QString const& txt, Qt::Alignment align = Qt::AlignLeft|Qt::AlignVCenter) {
         auto *it = new QTableWidgetItem(txt);
         it->setBackground(bg);
         it->setTextAlignment(align);
-        if (e.forMe)     it->setForeground(QColor(255,120,120));
-        else if (e.isCQ) it->setForeground(QColor(100,180,255));
+        if (fg.isValid()) it->setForeground(fg);
         return it;
     };
 
@@ -149,11 +181,21 @@ void CallRoster::addRowTo(QTableWidget *table, RosterEntry const& e)
     table->setRowHeight(row, 16);
 }
 
+void CallRoster::onHeaderClicked(int col)
+{
+    if (col == COL_MSG) return;   // free text — not a meaningful sort key
+    if (m_sortColumn == col)
+        m_sortOrder = (m_sortOrder == Qt::AscendingOrder) ? Qt::DescendingOrder : Qt::AscendingOrder;
+    else {
+        m_sortColumn = col;
+        m_sortOrder = Qt::AscendingOrder;
+    }
+    rebuild();
+}
+
 void CallRoster::rebuild()
 {
     const QString flt = m_filter->text().trimmed().toUpper();
-    m_tableLeft->setSortingEnabled(false);
-    m_tableRight->setSortingEnabled(false);
     m_tableLeft->setRowCount(0);
     m_tableRight->setRowCount(0);
 
@@ -170,6 +212,38 @@ void CallRoster::rebuild()
         if (e.isCQ)  ++cqCount;
     }
 
+    // Sort the WHOLE combined list first — the left/right split below is
+    // purely a display device (reads top-to-bottom-left then top-to-bottom-
+    // right, like a newspaper column) and must operate on an already-sorted
+    // list, or each pane ends up independently "sorted" against a different
+    // subset and the overall table looks unsorted.
+    if (m_sortColumn >= 0) {
+        const int col = m_sortColumn;
+        const bool asc = (m_sortOrder == Qt::AscendingOrder);
+        std::stable_sort(shown.begin(), shown.end(), [col](RosterEntry const* a, RosterEntry const* b) {
+            switch (col) {
+            case COL_CALL: return a->call.compare(b->call, Qt::CaseInsensitive) < 0;
+            case COL_GRID: return a->grid.compare(b->grid, Qt::CaseInsensitive) < 0;
+            case COL_SNR:  return a->snr < b->snr;
+            case COL_FREQ: return a->freq < b->freq;
+            case COL_DIST: return a->distKm < b->distKm;
+            case COL_BRG:  return a->bearing < b->bearing;
+            case COL_DXCC: return a->dxcc.compare(b->dxcc, Qt::CaseInsensitive) < 0;
+            case COL_CONT: return a->continent.compare(b->continent, Qt::CaseInsensitive) < 0;
+            default:       return false;
+            }
+        });
+        // Sort ascending above, then reverse for descending — negating the
+        // comparator directly would flip the relative order of equal
+        // elements too, which stable_sort is specifically meant to preserve.
+        if (!asc) std::reverse(shown.begin(), shown.end());
+    }
+
+    for (auto *table : { m_tableLeft, m_tableRight }) {
+        table->horizontalHeader()->setSortIndicatorShown(m_sortColumn >= 0);
+        if (m_sortColumn >= 0) table->horizontalHeader()->setSortIndicator(m_sortColumn, m_sortOrder);
+    }
+
     // Fill left column top-to-bottom, then right — same reading order as a
     // two-column newspaper page — so the same number of rows fits in half
     // the height each pane would otherwise need.
@@ -177,15 +251,29 @@ void CallRoster::rebuild()
     for (int i = 0; i < shown.size(); ++i)
         addRowTo(i < leftCount ? m_tableLeft : m_tableRight, *shown[i]);
 
-    m_tableLeft->setSortingEnabled(true);
-    m_tableRight->setSortingEnabled(true);
-
     QString stat = QString("%1 calls").arg(m_entries.size());
     if (cqCount)   stat += QString("  %1 CQ").arg(cqCount);
     if (forMeCount) stat += QString("  ⚡ %1 calling YOU").arg(forMeCount);
     m_stats->setText(stat);
     if (forMeCount) m_stats->setStyleSheet("color:#ff8080;font-size:10px;font-weight:bold;padding:0 4px;");
     else            m_stats->setStyleSheet("color:#4a7a9a;font-size:10px;padding:0 4px;");
+
+    // Most distant / strongest / weakest, across everything currently shown
+    if (shown.isEmpty()) {
+        m_summary->setText("—");
+    } else {
+        RosterEntry const *farthest=nullptr, *strongest=nullptr, *weakest=nullptr;
+        for (auto *e : shown) {
+            if (e->distKm > 0 && (!farthest || e->distKm > farthest->distKm)) farthest = e;
+            if (!strongest || e->snr > strongest->snr) strongest = e;
+            if (!weakest   || e->snr < weakest->snr)   weakest   = e;
+        }
+        QStringList parts;
+        if (farthest)  parts << QString("Most distant: %1 (%2 km)").arg(farthest->call).arg(int(farthest->distKm));
+        if (strongest) parts << QString("Strongest: %1 (%2 dB)").arg(strongest->call).arg(strongest->snr);
+        if (weakest)   parts << QString("Weakest: %1 (%2 dB)").arg(weakest->call).arg(weakest->snr);
+        m_summary->setText(parts.join("    "));
+    }
 }
 
 double CallRoster::haversineKm(double lat1, double lon1, double lat2, double lon2) const

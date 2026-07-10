@@ -618,7 +618,24 @@ void DXStationMap::mousePressEvent(QMouseEvent *e)
     m_leftIsPanning  = false;
 }
 
-void DXStationMap::mouseDoubleClickEvent(QMouseEvent *) { clearStations(); }
+void DXStationMap::mouseDoubleClickEvent(QMouseEvent *e)
+{
+    const int mapH = height() - INFO_H;
+    if (e->pos().y() <= mapH) {
+        double minDist = 18; PlottedStation const *found = nullptr;
+        for (auto const& s : m_stations) {
+            double lat, lon; if (!gridToLatLon(s.grid, lat, lon)) continue;
+            const QPointF pt = project(lon, lat);
+            const double d = hypot(e->pos().x() - pt.x(), e->pos().y() - pt.y());
+            if (d < minDist) { minDist = d; found = &s; }
+        }
+        if (found) {
+            emit stationDoubleClicked(found->call, found->freqHz, found->grid);
+            return;
+        }
+    }
+    clearStations();   // double-click on empty map area still resets the plot
+}
 
 void DXStationMap::mouseMoveEvent(QMouseEvent *e)
 {

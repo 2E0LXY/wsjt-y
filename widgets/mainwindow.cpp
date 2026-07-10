@@ -293,6 +293,19 @@ namespace
   constexpr int default_rx_audio_buffer_frames {-1}; // lets Qt decide
   constexpr int default_tx_audio_buffer_frames {-1}; // lets Qt decide
 
+  // Band Activity toggle buttons (CQ only / Auto CQ / Auto Call / Hold Tx
+  // Freq / Tx even-1st): checked = green (matches Monitor's #00aa00),
+  // unchecked = standard toolbar blue, disabled = dimmed so a forced-locked
+  // state (e.g. Auto Call locking CQ-only on) reads as "locked" not "broken".
+  QString const kToggleBtnQss =
+      "QToolButton{background:#0a1828;border:1px solid #1a4060;color:#5090b0;"
+      "font-size:10px;font-weight:bold;padding:3px 8px;border-radius:3px;}"
+      "QToolButton:hover{background:#0d2840;color:#00c8ff;border-color:#0080b0;}"
+      "QToolButton:checked{background:#00aa00;border-color:#00ffaa;color:#ffffff;}"
+      "QToolButton:checked:hover{background:#00c800;}"
+      "QToolButton:disabled{background:#0a1420;border-color:#0d2035;color:#3a5570;}"
+      "QToolButton:disabled:checked{background:#0a5a2a;border-color:#0d2035;color:#a0c0a8;}";
+
   bool message_is_73 (int type, QStringList const& msg_parts)
   {
     return type >= 0
@@ -721,6 +734,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   // Click a station dot on the map → tune Rx and populate DX call/grid fields
   connect(m_dxMap, &DXStationMap::stationClicked,
           this, &MainWindow::on_dxMapStationClicked);
+  // Double-click a station dot → tune, populate, and start calling them
+  connect(m_dxMap, &DXStationMap::stationDoubleClicked,
+          this, &MainWindow::on_dxMapStationDoubleClicked);
 
   // Dock pin from the map widget's own hamburger button — same shared helper
   // as the dock's right-click menu, so both stay in sync and both actually work.
@@ -766,6 +782,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   resizeDocks({m_callRosterDock}, {140}, Qt::Vertical);   // ~5 rows visible by default
   connect(m_callRoster, &CallRoster::callSelected,
           this, &MainWindow::on_dxMapStationClicked);
+  connect(m_callRoster, &CallRoster::watchedCallSeen,
+          this, &MainWindow::on_watchedCallSeen);
   for (auto *menu : menuBar()->findChildren<QMenu*>()) {
     if (menu->title().contains("View", Qt::CaseInsensitive)) {
       auto *act = m_callRosterDock->toggleViewAction();
@@ -774,6 +792,10 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       break;
     }
   }
+
+  // ── Band Activity toggle buttons: consistent on/off colouring ────────────
+  for (auto *btn : { ui->cbCQonly, ui->cbAutoCQ, ui->cbAutoCall, ui->cbHoldTxFreq, ui->txFirstCheckBox })
+    btn->setStyleSheet(kToggleBtnQss);
 
   // ── Gen Msgs / Tx editor collapse toggle ──────────────────────────────────
   // controls_stack_widget hosts the Gen Msgs / Tx1-6 message editor tabs
@@ -3711,6 +3733,14 @@ bool MainWindow::eventFilter (QObject * object, QEvent * event)
           // reset the Tx watchdog
           reset_watchdog_on_click ();
         }
+      break;
+
+    case QEvent::MouseButtonDblClick:
+      if (object == ui->EraseButton) {
+        on_EraseButton_clicked ();
+        if (m_callRoster) m_callRoster->clearAll ();
+        return true;
+      }
       break;
 
     case QEvent::ChildAdded:
@@ -7648,12 +7678,6 @@ void MainWindow::ba2msg(QByteArray ba, char message[])             //ba2msg()
     }
   }
   message[37]=0;
-}
-
-void MainWindow::on_txFirstCheckBox_stateChanged(int nstate)        //TxFirst
-{
-  m_txFirst = (nstate==2);
-  m_autoCQAlternateEvenOddNext = !m_txFirst;
 }
 
 void MainWindow::set_dateTimeQSO(int m_ntx)
@@ -16178,6 +16202,9 @@ void MainWindow::updateQsoCounter(bool increment) {
 }
 
 void MainWindow::on_txFirstCheckBox_toggled() {
+    m_txFirst = ui->txFirstCheckBox->isChecked();
+    m_autoCQAlternateEvenOddNext = !m_txFirst;
+
     qint64 ms=QDateTime::currentMSecsSinceEpoch();
 
     if((ms-m_msTxFirst)<300) {
@@ -16371,27 +16398,17 @@ void MainWindow::execCmd(QString cmd) {
 
 void MainWindow::on_dxMapStationClicked(QString call, int freqHz, QString grid)
 {
-    // Tune Rx to the station's audio frequency
+    // Single click = information only. Tune Rx so you can listen, and
+    // populate DX call/grid + the map's info panel — but do NOT touch
+    // Tx messages or start transmitting. (Double-click does that — see
+    // on_dxMapStationDoubleClicked below.)
     if (freqHz > 0 && ui->RxFreqSpinBox->isEnabled()) {
         ui->RxFreqSpinBox->setValue(freqHz);
         on_RxFreqSpinBox_valueChanged(freqHz);
     }
 
-    // Populate DX call + grid fields
     if (!call.isEmpty())  { m_deCall = call;  ui->dxCallEntry->setText(call); }
     if (!grid.isEmpty())  { m_deGrid = grid.left(4); ui->dxGridEntry->setText(grid.left(4)); }
-
-    // Replicate the full double-click sequence so auto-TX fires correctly
-    m_bDoubleClicked = true;
-    genStdMsgs(call);
-    setTxMsg(1);                              // Tx1 = "CALL 2E0LXY IO93" ready to send
-    ui->txFirstCheckBox->setChecked(m_txFirst);
-
-    // Enable auto-sequencing / Tx (same logic as decode-browser double-click)
-    if (!ui->autoButton->isChecked()) {
-        ui->autoButton->click();              // starts calling the station
-    }
-    if (m_transmitting) m_restart = true;    // restart current TX period if needed
 
     // DX Station Map already selected this station and ran its own QRZ
     // lookup (in DXStationMap::mouseReleaseEvent, before this signal fired).
@@ -16411,6 +16428,56 @@ void MainWindow::on_dxMapStationClicked(QString call, int freqHz, QString grid)
         continent.replace("UN", "N/A");
         m_dxMap->setExtraInfo(looked_up.entity_name, continent, looked_up.CQ_zone, looked_up.ITU_zone);
     }
+}
+
+void MainWindow::on_dxMapStationDoubleClicked(QString call, int freqHz, QString grid)
+{
+    // Double click = call this station. Same tune/populate/lookup as a
+    // single click, plus generating and sending the actual call.
+    on_dxMapStationClicked(call, freqHz, grid);
+
+    if (call.isEmpty()) return;
+
+    // Replicate the same sequence used elsewhere for "select this station
+    // and start calling" (see selectHound()/pileup double-click handling):
+    // set dx call/grid (done above), regenerate Tx messages, select Tx1
+    // (the initial call/reply message), then enable Tx.
+    m_bDoubleClicked = true;
+    genStdMsgs(call);
+    setTxMsg(1);                              // Tx1 = "CALL MYCALL MYGRID" ready to send
+    ui->txFirstCheckBox->setChecked(m_txFirst);
+
+    if (!ui->autoButton->isChecked()) {
+        ui->autoButton->click();              // Enable Tx — starts calling the station
+    }
+    if (m_transmitting) m_restart = true;    // restart current TX period if needed
+}
+
+// A watched callsign (Call Roster "watch for callsign" field) has been
+// heard: beep, pop up a brief notification, then QSY/populate/call exactly
+// as a map double-click does.
+void MainWindow::on_watchedCallSeen(QString call, int freqHz, QString grid)
+{
+    QApplication::beep();
+    showToast(tr("⚡ Watched callsign %1 heard — calling now").arg(call));
+    on_dxMapStationDoubleClicked(call, freqHz, grid);
+}
+
+// Small self-contained, non-modal notification that appears centred over
+// the main window and auto-dismisses. No external resources/tray icon
+// needed.
+void MainWindow::showToast(QString const& text)
+{
+    auto *toast = new QLabel(text, this);
+    toast->setWindowFlags(Qt::ToolTip | Qt::FramelessWindowHint);
+    toast->setStyleSheet("background:#2a2000;color:#ffe060;border:2px solid #806000;"
+                          "border-radius:6px;padding:10px 16px;font-weight:bold;font-size:13px;");
+    toast->setAlignment(Qt::AlignCenter);
+    toast->adjustSize();
+    const QPoint centre = mapToGlobal(rect().center()) - QPoint(toast->width()/2, toast->height()/2);
+    toast->move(centre);
+    toast->show();
+    QTimer::singleShot(4000, toast, &QObject::deleteLater);
 }
 
 // ── Version badge flash ───────────────────────────────────────────────────────

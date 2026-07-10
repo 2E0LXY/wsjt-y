@@ -214,7 +214,6 @@ private slots:
   void on_EraseButton_clicked();
   void band_activity_cleared ();
   void rx_frequency_activity_cleared ();
-  void on_txFirstCheckBox_stateChanged(int arg1);
   void set_dateTimeQSO(int m_ntx);
   void set_ntx(int n);
   void on_txrb1_toggled(bool status);
@@ -449,6 +448,8 @@ private slots:
      void on_actionShow_callsigns_on_waterfall_toggled(bool checked);
      void on_actionNMS_decoder_toggled(bool checked);
      void on_dxMapStationClicked(QString call, int freqHz, QString grid);
+     void on_dxMapStationDoubleClicked(QString call, int freqHz, QString grid);
+     void on_watchedCallSeen(QString call, int freqHz, QString grid);
   void onAutoBandHop(double freqMHz, QString reason);
   void onUpdateAvailable(QString tag, QUrl winUrl, QUrl debUrl);
   void onUpdateBadgeFlash();     void qrzInit();
@@ -791,6 +792,7 @@ private:
   void pinDockWidget(QDockWidget *dock, Qt::DockWidgetArea area, QString settingsKey);
   void registerDockInViewMenu(QDockWidget *dock, QString label);
   QToolButton *m_genMsgsToggleBtn = nullptr;
+  void showToast(QString const& text);
   AutoBandHop  *m_autoBandHop = nullptr;  // suppress map updates during startup restore
   VersionChecker *m_versionChecker = nullptr;
   QPushButton    *m_updateBadge = nullptr;
