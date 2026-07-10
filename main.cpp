@@ -298,7 +298,7 @@ int main(int argc, char *argv[])
         // change this key if you want to force a new splash screen
         // for a new version, the user will be able to re-disable it
         // if they wish
-        QString splash_flag_name {"Splash_v1.7"};
+        QString splash_flag_name {"Splash_WSJTY_v1"};
         if (multi_settings.common_value (splash_flag_name, true).toBool ())
           {
             QObject::connect (&splash, &SplashScreen::disabled, [&, splash_flag_name] {

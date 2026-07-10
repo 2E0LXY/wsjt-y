@@ -5865,7 +5865,16 @@ void MainWindow::readFromStdout()                             //readFromStdout
             if (m_bandActivityRawView) {
               ui->decodedTextBrowser->insertText (band.rightJustified  (40, '-'));
             } else {
-              ui->decodedTextBrowser->insertLineSpacer (band.rightJustified  (40, '-'));
+              // Solid coloured bar (separatorColor) with the band name
+              // centred, rather than dashes trailing off to a right-
+              // justified band name.
+              const QString trimmedBand = band.trimmed();
+              const int width = 40;
+              const int pad = width - trimmedBand.length();
+              const QString centredBand = pad > 0
+                  ? QString(pad/2, ' ') + trimmedBand + QString(pad - pad/2, ' ')
+                  : trimmedBand;
+              ui->decodedTextBrowser->insertLineSpacer (centredBand);
             }
             // Z
             if (m_unfilteredView && m_unfilteredView->isVisible()) {

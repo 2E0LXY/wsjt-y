@@ -2152,7 +2152,7 @@ void Configuration::impl::read_settings ()
   removeExtra_ = settings_->value("removeExtra", false).toBool();
   decoded_text_psk_highlight_ = settings_->value("DecodedTextHighlightUnderline", true).toBool();
   ignoreListReset_ = settings_->value("ignoreListReset",0).toInt (); 
-  separatorColor_ = settings_->value("separatorColor", "#777777").toString();
+  separatorColor_ = settings_->value("separatorColor", "#0a2040").toString();
   alertCmdLine_ = settings_->value("alertCmdLine").toString();
 }
 

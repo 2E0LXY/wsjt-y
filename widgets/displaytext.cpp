@@ -111,8 +111,8 @@ void DisplayText::mouseDoubleClickEvent(QMouseEvent *e)
 
 void DisplayText::insertLineSpacer(QString const& line)
 {
-  // Z
-  insertText (line, m_config->separatorColor());
+  // Z — solid separator bar matching the dock title bar's colour scheme
+  insertText (line, m_config->separatorColor(), QColor {"#00d4ff"});
 }
 
 namespace
