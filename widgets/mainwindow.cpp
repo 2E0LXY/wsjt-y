@@ -8967,10 +8967,6 @@ void MainWindow::lookup()
 
 void MainWindow::on_lookupButton_clicked()                    //Lookup button
 {
-  if (!ui->w_callInfo->isVisible()) {
-    ui->actionCall_info->setChecked(true);
-    ui->w_callInfo->setVisible(true);
-  }
   lookup();
   dxLookup(ui->dxCallEntry->text().trimmed().toUpper(), ui->dxGridEntry->text().trimmed().toUpper());
 }
@@ -16401,8 +16397,24 @@ void MainWindow::on_dxMapStationClicked(QString call, int freqHz, QString grid)
     }
     if (m_transmitting) m_restart = true;    // restart current TX period if needed
 
-    // Lookup callsign data (DXCC, distance, bearing, Call Info panel)
-    on_dxCallEntry_returnPressed();
+    // DX Station Map already selected this station and ran its own QRZ
+    // lookup (in DXStationMap::mouseReleaseEvent, before this signal fired).
+    // Just add the local (offline) DXCC/continent/zone lookup on top — do
+    // NOT route through on_dxCallEntry_returnPressed()/on_lookupButton_clicked(),
+    // which forces the legacy Call Info panel back open on every click.
+    if (m_dxMap && !call.isEmpty()) {
+        auto const& looked_up = m_logBook.countries ()->lookup (call);
+        QString continent = AD1CCty::continent (looked_up.continent);
+        continent.replace("AF", "Africa");
+        continent.replace("AN", "Antarctica");
+        continent.replace("AS", "Asia");
+        continent.replace("EU", "Europe");
+        continent.replace("NA", "N. America");
+        continent.replace("OC", "Oceania");
+        continent.replace("SA", "S. America");
+        continent.replace("UN", "N/A");
+        m_dxMap->setExtraInfo(looked_up.entity_name, continent, looked_up.CQ_zone, looked_up.ITU_zone);
+    }
 }
 
 // ── Version badge flash ───────────────────────────────────────────────────────
