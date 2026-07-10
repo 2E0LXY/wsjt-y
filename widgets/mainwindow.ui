@@ -4824,7 +4824,6 @@ list. The list can be maintained in Settings (F2).</string>
     <addaction name="actionSWL_Mode"/>
     <addaction name="separator"/>
     <addaction name="cbDockWF"/>
-    <addaction name="actionCall_info"/>
     <addaction name="actionDark_mode"/>
     <addaction name="actionShow_callsigns_on_waterfall"/>
     <addaction name="separator"/>
@@ -5580,14 +5579,6 @@ list. The list can be maintained in Settings (F2).</string>
    </property>
    <property name="text">
     <string>Dock Windows</string>
-   </property>
-  </action>
-  <action name="actionCall_info">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Call info</string>
    </property>
   </action>
   <action name="actionWSJT_Z_Debug">

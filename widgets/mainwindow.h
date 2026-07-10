@@ -445,7 +445,6 @@ private slots:
      void dxLookup(QString dxCall, QString dxGrid);
      void leftClickHandler(Qt::KeyboardModifiers modifiers);
     void bandActivityClickToggle(Qt::KeyboardModifiers modifiers);
-     void on_actionCall_info_triggered();
      void on_actionDark_mode_triggered();
      void on_actionShow_callsigns_on_waterfall_toggled(bool checked);
      void on_actionNMS_decoder_toggled(bool checked);

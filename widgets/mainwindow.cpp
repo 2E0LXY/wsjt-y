@@ -794,7 +794,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     m_settings->setValue("genMsgsEditorVisible", nowVisible);
   });
   {
-    const bool startVisible = m_settings->value("genMsgsEditorVisible", true).toBool();
+    const bool startVisible = m_settings->value("genMsgsEditorVisible", false).toBool();
     ui->controls_stack_widget->setVisible(startVisible);
     m_genMsgsToggleBtn->setArrowType(startVisible ? Qt::DownArrow : Qt::RightArrow);
   }
@@ -1583,7 +1583,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 */
 
     ui->verticalLayout_3->setAlignment(ui->outAttenuation, Qt::AlignHCenter);
-    ui->w_callInfo->setVisible(ui->actionCall_info->isChecked());
+    ui->w_callInfo->setVisible(false);
     ui->label_3->setText(tr("<a href=\"qrz-lookup\">DX Call</a>"));
     ui->label_3->setTextInteractionFlags(Qt::TextBrowserInteraction);
     ui->label_3->setOpenExternalLinks(false);
@@ -1933,7 +1933,6 @@ void MainWindow::writeSettings()
   m_settings->setValue ("filter_LOTW", ui->cb_f_LOTW->isChecked());
   m_settings->setValue ("CQonlyIncl73", ui->cbCQonlyIncl73->isChecked());
   m_settings->setValue ("dockWaterfall", ui->cbDockWF->isChecked());
-  m_settings->setValue ("showCallInfo", ui->actionCall_info->isChecked());
   m_settings->setValue ("filter_enabled", ui->cb_filtering->isChecked());
   m_settings->setValue ("darkMode", ui->actionDark_mode->isChecked());
   m_settings->setValue ("showCallsignsOnWaterfall", ui->actionShow_callsigns_on_waterfall->isChecked());
@@ -2204,7 +2203,6 @@ void MainWindow::readSettings()
   ui->cb_IgnoreAfterWD->setChecked(m_settings->value("AutoIgnore",true).toBool());
   ui->cbCQonlyIncl73->setChecked(m_settings->value("CQonlyIncl73", false).toBool());
   ui->cbDockWF->setChecked(m_settings->value("dockWaterfall", false).toBool());
-  ui->actionCall_info->setChecked(m_settings->value("showCallInfo", false).toBool());
   ui->actionDark_mode->setChecked(m_settings->value("darkMode", true).toBool());
   ui->actionShow_callsigns_on_waterfall->setChecked(
       m_settings->value("showCallsignsOnWaterfall", false).toBool());
@@ -2234,7 +2232,6 @@ void MainWindow::readSettings()
   m_unfilteredViewGeometry = m_settings->value("rawViewGeometry").toByteArray();
   m_pskReporterViewGeometry = m_settings->value("pskViewGeometry").toByteArray();
   auto showRawView =m_settings->value("rawViewDisplayed", false).toBool();
-  auto showPskView =m_settings->value("pskViewDisplayed", false).toBool();
   m_TxFirstLock = m_settings->value("txFirstLock", false).toBool();
 
 
@@ -2344,7 +2341,10 @@ void MainWindow::readSettings()
   if (displayQSYMonitor) on_actionQSY_Monitor_triggered();
   // Z
   if (showRawView) on_actionUnfiltered_View_triggered();
-  if (showPskView && m_config.spot_to_psk_reporter()) on_actionPSKReporter_triggered();
+  // PSK Reporter view is never auto-restored on startup — it was reopening
+  // (and immediately re-attempting a TLS connection) on every launch
+  // whenever it happened to be left open at last exit. Open manually via
+  // Decode -> PSK Reporter.
   if (m_TxFirstLock) ui->txFirstCheckBox->setStyleSheet("background-color: #ff0000;");
 }
 
@@ -15113,10 +15113,6 @@ void MainWindow::dxLookup(QString dxCall, QString dxGrid) {
     ui->ci_grid->setText(dxGrid);
 
     ci_gridLookup();
-}
-
-void MainWindow::on_actionCall_info_triggered() {
-    ui->w_callInfo->setVisible(ui->actionCall_info->isChecked());
 }
 
 void MainWindow::qrzVisible(bool b) {
