@@ -198,7 +198,14 @@ void RemoteBridge::open_socket ()
   // Auth token travels as a query parameter on the WSS handshake URL —
   // the relay validates it before upgrading the connection. TLS (wss://)
   // is provided by the relay; WSJT-Y makes an outbound-only connection.
+  // The relay serves the WebSocket at /ws — append it when the user
+  // entered a bare host so both this client and the Android app agree.
   QUrl url {relay_url_};
+  if (url.scheme () == "https") url.setScheme ("wss");
+  else if (url.scheme () == "http") url.setScheme ("ws");
+  else if (url.scheme ().isEmpty ()) url.setScheme ("wss");
+  auto path = url.path ();
+  if (path.isEmpty () || path == "/") url.setPath ("/ws");
   QUrlQuery q {url};
   if (!token_.isEmpty ()) q.addQueryItem ("token", token_);
   url.setQuery (q);
