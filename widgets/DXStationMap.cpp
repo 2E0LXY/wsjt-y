@@ -5,6 +5,7 @@
 #include <QFontMetrics>
 #include <QToolTip>
 #include <QRegularExpression>
+#include <QDateTime>
 #include <cmath>
 
 static constexpr double DEG = M_PI / 180.0;
@@ -281,6 +282,52 @@ void DXStationMap::drawArc(QPainter &p,double lat1,double lon1,double lat2,doubl
     p.setPen(pen); p.setBrush(Qt::NoBrush); p.drawPath(path);
 }
 
+// Day/night terminator ("greyline"). Approximate solar position — good
+// enough for a visual overlay, not precision astronomy:
+//   declination via the standard -23.44*cos(360/365*(dayOfYear+10)) fit
+//   sub-solar longitude from the UTC time of day (solar noon there now)
+// A point is in daylight when its solar elevation > 0:
+//   sin(elev) = sin(lat)*sin(decl) + cos(lat)*cos(decl)*cos(hourAngle)
+// hourAngle here is just (this point's longitude - sub-solar longitude),
+// in degrees, since both advance 15 deg/hour together.
+void DXStationMap::drawGreyline(QPainter &p, int w, int mapH) const
+{
+    auto const utcNow = QDateTime::currentDateTimeUtc();
+    auto const& date = utcNow.date();
+    auto const& time = utcNow.time();
+    const int dayOfYear = date.dayOfYear();
+    const double hourUtc = time.hour() + time.minute()/60.0 + time.second()/3600.0;
+
+    const double declDeg = -23.44 * std::cos(DEG * (360.0/365.0) * (dayOfYear + 10));
+    const double declRad = declDeg * DEG;
+    // Longitude currently at local solar noon (~180 - hourUtc*15, wrapped)
+    double subsolarLon = 180.0 - hourUtc * 15.0;
+    while (subsolarLon > 180.0)  subsolarLon -= 360.0;
+    while (subsolarLon < -180.0) subsolarLon += 360.0;
+
+    const double lonStepDeg = 3.0, latStepDeg = 3.0;
+    p.setPen(Qt::NoPen);
+    for (double lon = -180.0; lon < 180.0; lon += lonStepDeg) {
+        const double hourAngleRad = (lon - subsolarLon) * DEG;
+        const double cosH = std::cos(hourAngleRad);
+        for (double lat = -87.0; lat < 87.0; lat += latStepDeg) {
+            const double latRad = lat * DEG;
+            const double sinElev = std::sin(latRad)*std::sin(declRad)
+                                  + std::cos(latRad)*std::cos(declRad)*cosH;
+            if (sinElev >= 0.0) continue;   // daylight — leave clear
+            // Fade the shading in over the twilight band (elev 0 to -8 deg)
+            // rather than a hard night/day edge, so the terminator itself
+            // reads as a soft line instead of a jagged grid boundary.
+            const double alpha = qBound(0.0, -sinElev / 0.14, 1.0);   // ~8 deg civil-ish falloff
+            QPointF const c1 = project(lon, lat);
+            QPointF const c2 = project(lon + lonStepDeg, lat + latStepDeg);
+            const double cw = std::abs(c2.x() - c1.x()) + 1.0;
+            const double ch = std::abs(c2.y() - c1.y()) + 1.0;
+            p.fillRect(QRectF(c1.x(), c1.y(), cw, ch), QColor(0, 0, 10, int(alpha * 130)));
+        }
+    }
+}
+
 void DXStationMap::drawHomeMarker(QPainter &p) const
 {
     // Guard: require a valid 4+ char locator that has been explicitly set by setHomeGrid()
@@ -425,6 +472,8 @@ void DXStationMap::paintEvent(QPaintEvent *)
             p.fillRect(0,y,w,1,QColor(int(3+s*14),int(7+s*20),int(18+s*38)));
         }
     }
+
+    drawGreyline(p, w, mapH);
 
     // Grid lines — subtle over photo
     const bool hasSat=!m_worldMap.isNull();

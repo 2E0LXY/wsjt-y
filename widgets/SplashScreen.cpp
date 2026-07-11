@@ -28,12 +28,6 @@ SplashScreen::SplashScreen ()
   : QSplashScreen {QPixmap {":/splash.png"}, Qt::WindowStaysOnTopHint}
 {
   setLayout (&m_->main_layout_);
-  showMessage (
-	"<p style='color:red; background-color: white;'><b>For support / bug reports / questions please visit our forum here:<br /> https://groups.io/g/WSJT-Z/</b></p>"
-	"<hr>"
-	"<p style='color:red; background-color: white;'><h1>If you like the software, please donate to our charity project. Details on the forum. </h1></p>"
-
-    );
   connect (&m_->checkbox_, &QCheckBox::stateChanged, [this] (int s) {
       if (Qt::Checked == s) Q_EMIT disabled ();
     });

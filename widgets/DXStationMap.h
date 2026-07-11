@@ -73,6 +73,7 @@ private:
     void    drawHomeMarker(QPainter &) const;
     void    drawStationMarker(QPainter &, double, double, QString const&, QColor) const;
     void    drawInfoPanel(QPainter &) const;
+    void    drawGreyline(QPainter &, int w, int mapH) const;
 
     // ── State ─────────────────────────────────────────────────────────────────
     QString   m_homeGrid;
