@@ -1022,8 +1022,9 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
           tr ("wss:// address of the relay (blank to disable relay mode):"), QLineEdit::Normal, currentUrl, &ok);
       if (!ok) return;
       auto const currentToken = m_settings->value ("remoteRelayToken").toString ();
-      auto const token = QInputDialog::getText (this, tr ("Remote Control — Auth Token"),
-          tr ("Pairing token for this station (used for relay and direct mode):"),
+      auto const token = QInputDialog::getText (this, tr ("Remote Control — Password"),
+          tr ("Password for this station (used for relay and direct mode — "
+              "enter the same one in the Android app):"),
           QLineEdit::Normal, currentToken, &ok);
       if (!ok) return;
       m_settings->setValue ("remoteRelayUrl", url);
@@ -1059,7 +1060,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
                 "ws://%1:%2\n\n"
                 "For WAN access, forward port %2 (TCP) on your router to this PC, "
                 "then use your WAN IP or DDNS hostname the same way. This connection "
-                "is NOT encrypted (plain ws://) — the auth token still gates access, "
+                "is NOT encrypted (plain ws://) — the password still gates access, "
                 "but treat WAN direct as lower-assurance than relay mode.")
                 .arg (addrList).arg (port));
       } else {
