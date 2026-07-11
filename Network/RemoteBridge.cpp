@@ -124,6 +124,7 @@ void RemoteBridge::on_direct_new_connection ()
       connect (client, &QWebSocket::textMessageReceived,
                this, &RemoteBridge::on_direct_client_text_message_received);
       direct_clients_.append (client);
+      replay_last_status (client);
       qDebug () << "RemoteBridge: direct client connected from" << client->peerAddress ().toString ()
                  << "(" << direct_clients_.size () << "total)";
       Q_EMIT direct_client_count_changed (direct_clients_.size ());
@@ -216,6 +217,7 @@ void RemoteBridge::on_connected ()
 {
   qDebug () << "RemoteBridge: connected to" << relay_url_.toString ();
   Q_EMIT connection_state_changed (true);
+  replay_last_status (socket_);
 }
 
 void RemoteBridge::on_disconnected ()
@@ -295,6 +297,11 @@ void RemoteBridge::send_decode (QString const& utc_hms, int snr, double dt, quin
 void RemoteBridge::send_status (Frequency dial_frequency, QString const& mode, QString const& dx_call,
                                  QString const& dx_grid, bool tx_enabled, bool transmitting)
 {
+  last_status_ = QJsonObject {
+      {"type", "status"}, {"dial_freq_hz", static_cast<double> (dial_frequency)},
+      {"mode", mode}, {"dx_call", dx_call}, {"dx_grid", dx_grid},
+      {"tx_enabled", tx_enabled}, {"transmitting", transmitting}
+    };
   send_json (QJsonObject {
       {"type", "status"}, {"dial_freq_hz", static_cast<double> (dial_frequency)},
       {"mode", mode}, {"dx_call", dx_call}, {"dx_grid", dx_grid},
@@ -310,6 +317,12 @@ void RemoteBridge::send_qso_logged (QString const& call, QString const& grid, Fr
       {"dial_freq_hz", static_cast<double> (dial_frequency)}, {"mode", mode},
       {"report_sent", report_sent}, {"report_rcvd", report_rcvd}
     });
+}
+
+void RemoteBridge::replay_last_status (QWebSocket * client)
+{
+  if (last_status_.isEmpty () || !client) return;
+  client->sendTextMessage (QString::fromUtf8 (QJsonDocument {last_status_}.toJson (QJsonDocument::Compact)));
 }
 
 void RemoteBridge::send_decodes_cleared ()

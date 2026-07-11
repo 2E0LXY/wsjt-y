@@ -11,7 +11,7 @@
 class QWebSocket;
 class QWebSocketServer;
 class QTimer;
-class QJsonObject;
+#include <QJsonObject>
 
 // WSJT-Y remote-control bridge.
 //
@@ -98,6 +98,7 @@ private:
   void open_socket ();
   void send_json (QJsonObject const& obj);
   void handle_incoming_json (QString const& message);
+  void replay_last_status (QWebSocket * client);
 
   QWebSocket * socket_ = nullptr;
   QTimer     * reconnect_timer_ = nullptr;
@@ -109,6 +110,7 @@ private:
   QList<QWebSocket *> direct_clients_;
   QString              direct_token_;
   QString              last_error_;
+  QJsonObject          last_status_;
 };
 
 #endif
