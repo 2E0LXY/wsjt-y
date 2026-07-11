@@ -1,10 +1,12 @@
 #include "RemoteBridge.hpp"
 
 #include <QtWebSockets/QWebSocket>
+#include <QtWebSockets/QWebSocketServer>
 #include <QTimer>
 #include <QUrlQuery>
 #include <QJsonObject>
 #include <QJsonDocument>
+#include <QNetworkInterface>
 #include <QDebug>
 
 namespace
@@ -19,6 +21,127 @@ RemoteBridge::RemoteBridge (QObject * parent)
 
 RemoteBridge::~RemoteBridge ()
 {
+  disable_direct_server ();
+}
+
+bool RemoteBridge::enable_direct_server (quint16 port, QString const& token)
+{
+  disable_direct_server ();
+
+  direct_token_ = token;
+  direct_server_ = new QWebSocketServer {QStringLiteral ("WSJT-Y Remote"),
+                                          QWebSocketServer::NonSecureMode, this};
+  // Plain ws:// — see the class comment in RemoteBridge.hpp for the
+  // trust-model rationale (same as the existing local UDP protocol;
+  // auth token required either way, but not itself encrypted here).
+  if (!direct_server_->listen (QHostAddress::Any, port))
+    {
+      last_error_ = direct_server_->errorString ();
+      qDebug () << "RemoteBridge: direct server failed to listen on port" << port << ":" << last_error_;
+      direct_server_->deleteLater ();
+      direct_server_ = nullptr;
+      return false;
+    }
+
+  connect (direct_server_, &QWebSocketServer::newConnection, this, &RemoteBridge::on_direct_new_connection);
+  qDebug () << "RemoteBridge: direct server listening on port" << direct_server_->serverPort ();
+  return true;
+}
+
+void RemoteBridge::disable_direct_server ()
+{
+  for (auto * client : direct_clients_)
+    {
+      client->close ();
+      client->deleteLater ();
+    }
+  direct_clients_.clear ();
+
+  if (direct_server_)
+    {
+      direct_server_->close ();
+      direct_server_->deleteLater ();
+      direct_server_ = nullptr;
+    }
+}
+
+bool RemoteBridge::direct_server_listening () const
+{
+  return direct_server_ && direct_server_->isListening ();
+}
+
+quint16 RemoteBridge::direct_server_port () const
+{
+  return direct_server_ ? direct_server_->serverPort () : 0;
+}
+
+QString RemoteBridge::error_string () const
+{
+  return last_error_;
+}
+
+int RemoteBridge::direct_client_count () const
+{
+  return direct_clients_.size ();
+}
+
+QStringList RemoteBridge::local_ipv4_addresses ()
+{
+  QStringList out;
+  for (auto const& iface : QNetworkInterface::allInterfaces ())
+    {
+      if (!(iface.flags () & QNetworkInterface::IsUp)) continue;
+      if (iface.flags () & QNetworkInterface::IsLoopBack) continue;
+      for (auto const& entry : iface.addressEntries ())
+        {
+          auto const ip = entry.ip ();
+          if (ip.protocol () == QAbstractSocket::IPv4Protocol)
+            {
+              out << ip.toString ();
+            }
+        }
+    }
+  return out;
+}
+
+void RemoteBridge::on_direct_new_connection ()
+{
+  while (direct_server_ && direct_server_->hasPendingConnections ())
+    {
+      auto * client = direct_server_->nextPendingConnection ();
+      QUrlQuery const q {client->requestUrl ()};
+      auto const supplied_token = q.queryItemValue ("token");
+      if (direct_token_.isEmpty () || supplied_token != direct_token_)
+        {
+          qDebug () << "RemoteBridge: direct client rejected (bad/missing token) from"
+                     << client->peerAddress ().toString ();
+          client->close (QWebSocketProtocol::CloseCodeAuthenticationRequired, "invalid token");
+          client->deleteLater ();
+          continue;
+        }
+
+      connect (client, &QWebSocket::disconnected, this, &RemoteBridge::on_direct_client_disconnected);
+      connect (client, &QWebSocket::textMessageReceived,
+               this, &RemoteBridge::on_direct_client_text_message_received);
+      direct_clients_.append (client);
+      qDebug () << "RemoteBridge: direct client connected from" << client->peerAddress ().toString ()
+                 << "(" << direct_clients_.size () << "total)";
+      Q_EMIT direct_client_count_changed (direct_clients_.size ());
+    }
+}
+
+void RemoteBridge::on_direct_client_disconnected ()
+{
+  auto * client = qobject_cast<QWebSocket *> (sender ());
+  if (!client) return;
+  direct_clients_.removeAll (client);
+  client->deleteLater ();
+  Q_EMIT direct_client_count_changed (direct_clients_.size ());
+}
+
+void RemoteBridge::on_direct_client_text_message_received (QString message)
+{
+  handle_incoming_json (message);
 }
 
 void RemoteBridge::configure (QUrl const& relay_url, QString const& token)
@@ -117,6 +240,11 @@ void RemoteBridge::on_error (QAbstractSocket::SocketError)
 
 void RemoteBridge::on_text_message_received (QString message)
 {
+  handle_incoming_json (message);
+}
+
+void RemoteBridge::handle_incoming_json (QString const& message)
+{
   auto const doc = QJsonDocument::fromJson (message.toUtf8 ());
   if (!doc.isObject ()) return;
   auto const obj = doc.object ();
@@ -143,8 +271,15 @@ void RemoteBridge::on_text_message_received (QString message)
 
 void RemoteBridge::send_json (QJsonObject const& obj)
 {
-  if (!is_connected ()) return;
-  socket_->sendTextMessage (QString::fromUtf8 (QJsonDocument {obj}.toJson (QJsonDocument::Compact)));
+  auto const text = QString::fromUtf8 (QJsonDocument {obj}.toJson (QJsonDocument::Compact));
+  if (is_connected ())
+    {
+      socket_->sendTextMessage (text);
+    }
+  for (auto * client : direct_clients_)
+    {
+      client->sendTextMessage (text);
+    }
 }
 
 void RemoteBridge::send_decode (QString const& utc_hms, int snr, double dt, quint32 audio_freq_hz,

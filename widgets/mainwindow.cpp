@@ -1007,6 +1007,11 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     QString const token = m_settings->value ("remoteRelayToken").toString ();
     if (relayUrl.isValid () && !relayUrl.host ().isEmpty ())
       m_remoteBridge->configure (relayUrl, token);
+
+    bool const directEnabled = m_settings->value ("remoteDirectEnabled", false).toBool ();
+    quint16 const directPort = static_cast<quint16> (m_settings->value ("remoteDirectPort", 8765).toUInt ());
+    if (directEnabled)
+      m_remoteBridge->enable_direct_server (directPort, token);
   }
   if (ui->menuTools) {
     auto *remoteAction = ui->menuTools->addAction (tr ("Configure Remote Control (Android app)…"));
@@ -1014,15 +1019,53 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
       bool ok = false;
       auto const currentUrl = m_settings->value ("remoteRelayUrl").toString ();
       auto const url = QInputDialog::getText (this, tr ("Remote Control — Relay URL"),
-          tr ("wss:// address of the relay (blank to disable):"), QLineEdit::Normal, currentUrl, &ok);
+          tr ("wss:// address of the relay (blank to disable relay mode):"), QLineEdit::Normal, currentUrl, &ok);
       if (!ok) return;
       auto const currentToken = m_settings->value ("remoteRelayToken").toString ();
       auto const token = QInputDialog::getText (this, tr ("Remote Control — Auth Token"),
-          tr ("Pairing token for this station:"), QLineEdit::Normal, currentToken, &ok);
+          tr ("Pairing token for this station (used for relay and direct mode):"),
+          QLineEdit::Normal, currentToken, &ok);
       if (!ok) return;
       m_settings->setValue ("remoteRelayUrl", url);
       m_settings->setValue ("remoteRelayToken", token);
       m_remoteBridge->configure (QUrl {url}, token);
+
+      // Direct mode: same token, no relay involved — either same LAN, or
+      // WAN if the user forwards this port on their router themselves.
+      auto const currentPort = m_settings->value ("remoteDirectPort", 8765).toInt ();
+      auto const wasEnabled = m_settings->value ("remoteDirectEnabled", false).toBool ();
+      auto const portText = QInputDialog::getText (this, tr ("Remote Control — Direct Connection"),
+          tr ("Port to listen on for a direct LAN/WAN connection (blank to disable — "
+              "the phone would then need to reach the relay above instead):"),
+          QLineEdit::Normal, wasEnabled ? QString::number (currentPort) : QString {}, &ok);
+      if (!ok) return;
+
+      bool portOk = false;
+      int const port = portText.trimmed ().toInt (&portOk);
+      if (portText.trimmed ().isEmpty () || !portOk || port <= 0) {
+        m_settings->setValue ("remoteDirectEnabled", false);
+        m_remoteBridge->disable_direct_server ();
+        return;
+      }
+
+      if (m_remoteBridge->enable_direct_server (static_cast<quint16> (port), token)) {
+        m_settings->setValue ("remoteDirectEnabled", true);
+        m_settings->setValue ("remoteDirectPort", port);
+        auto const ips = RemoteBridge::local_ipv4_addresses ();
+        QString addrList = ips.isEmpty () ? tr ("(no LAN address found — check your network connection)")
+                                           : ips.join (tr(" or "));
+        MessageBox::information_message (this, tr ("Direct Connection Enabled"),
+            tr ("On the same LAN, enter this in the app instead of a relay URL:\n\n"
+                "ws://%1:%2\n\n"
+                "For WAN access, forward port %2 (TCP) on your router to this PC, "
+                "then use your WAN IP or DDNS hostname the same way. This connection "
+                "is NOT encrypted (plain ws://) — the auth token still gates access, "
+                "but treat WAN direct as lower-assurance than relay mode.")
+                .arg (addrList).arg (port));
+      } else {
+        MessageBox::warning_message (this, tr ("Direct Connection Failed"),
+            tr ("Could not listen on port %1: %2").arg (port).arg (m_remoteBridge->error_string ()));
+      }
     });
   }
 
