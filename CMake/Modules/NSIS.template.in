@@ -1042,10 +1042,10 @@ inst:
     StrCmp "$IS_DEFAULT_INSTALLDIR" "1" 0 +2
       StrCpy $INSTDIR "@CPACK_NSIS_INSTALL_ROOT@\@CPACK_PACKAGE_INSTALL_DIRECTORY@"
 
-  IntOp $DO_NOT_ADD_TO_PATH 0 + ${BST_CHECKED} ; set to checked
+  IntOp $DO_NOT_ADD_TO_PATH 0 + ${BST_UNCHECKED} ; set to unchecked — default is now "add to PATH"
   IntOp $ADD_TO_PATH_ALL_USERS 0 + ${BST_UNCHECKED} ; set to unchecked
-  IntOp $ADD_TO_PATH_CURRENT_USER 0 + ${BST_UNCHECKED} ; ditto
-  IntOp $INSTALL_DESKTOP 0 + ${BST_UNCHECKED} ; set to unchecked
+  IntOp $ADD_TO_PATH_CURRENT_USER 0 + ${BST_CHECKED} ; set to checked — default PATH option
+  IntOp $INSTALL_DESKTOP 0 + ${BST_CHECKED} ; set to checked — default is now "create desktop icon"
 
   @CPACK_NSIS_EXTRA_INIT_COMMANDS@
 
