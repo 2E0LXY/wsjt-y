@@ -115,7 +115,7 @@ void RemoteBridge::on_direct_new_connection ()
         {
           qDebug () << "RemoteBridge: direct client rejected (bad/missing token) from"
                      << client->peerAddress ().toString ();
-          client->close (QWebSocketProtocol::CloseCodeAuthenticationRequired, "invalid token");
+          client->close (QWebSocketProtocol::CloseCodePolicyViolated, "invalid token");
           client->deleteLater ();
           continue;
         }
