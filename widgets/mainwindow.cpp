@@ -1060,6 +1060,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_remoteBridge = new RemoteBridge (this);
   connect (m_remoteBridge, &RemoteBridge::reply_requested, this,
            [this](QString call, QString grid, quint32 audioFreqHz) {
+    m_remoteInitiatedQso = true;
     on_dxMapStationDoubleClicked (call, static_cast<int> (audioFreqHz), grid);
   });
   connect (m_remoteBridge, &RemoteBridge::halt_tx_requested, this, [this]() {
@@ -7459,7 +7460,7 @@ void MainWindow::guiUpdate()
       }
       // Z
       if((m_config.prompt_to_log() or m_config.autoLog()
-          or ui->cbAutoCQ->isChecked() or ui->cbAutoCall->isChecked())
+          or ui->cbAutoCQ->isChecked() or ui->cbAutoCall->isChecked() or m_remoteInitiatedQso)
           && !m_tune
           && (CALLING != m_QSOProgress || m_sentFirst73))
         {
@@ -8429,7 +8430,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
           m_nextCall="";   //### Temporary: disable use of "TU;" message
           if(SpecOp::RTTY == m_specOp and m_nextCall!="") {
             // We're in RTTY contest and have "nextCall" queued up: send a "TU; ..." message
-            if (m_config.prompt_to_log() || m_config.autoLog()) {
+            if (m_config.prompt_to_log() || m_config.autoLog() || m_remoteInitiatedQso) {
               logQSOTimer.start(0);
             }
             else {
@@ -8443,7 +8444,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
           } else {
             if (false)              // Always Send 73 after receiving RRR or RR73, even in contest mode.
               {
-                if (m_config.prompt_to_log() || m_config.autoLog()) {
+                if (m_config.prompt_to_log() || m_config.autoLog() || m_remoteInitiatedQso) {
                   logQSOTimer.start(0);
                 }
                 else {
@@ -8476,7 +8477,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
               {
                 if (m_zdebug) log(QString("processMessage ROGERS terminal signoff: word_3=%1").arg(word_3));
                 if (m_config.prompt_to_log() || m_config.autoLog()
-                    || ui->cbAutoCall->isChecked() || ui->cbAutoCQ->isChecked()) {
+                    || ui->cbAutoCall->isChecked() || ui->cbAutoCQ->isChecked() || m_remoteInitiatedQso) {
                   logQSOTimer.start(0);
                 }
                 else {
@@ -8554,7 +8555,7 @@ void MainWindow::processMessage (DecodedText const& message, Qt::KeyboardModifie
              || (5 == message_words.size ()
                  && m_baseCall == message_words.at (1))) {
       // dual Fox style message, possibly from MSHV
-      if (m_config.prompt_to_log() || m_config.autoLog()) {
+      if (m_config.prompt_to_log() || m_config.autoLog() || m_remoteInitiatedQso) {
         logQSOTimer.start(0);
       }
       else {
@@ -9600,6 +9601,7 @@ void MainWindow::on_logQSOButton_clicked()                 //Log QSO button
          if (m_config.rxTotxFreq()) on_pbT2R_clicked();
          if (m_zdebug) log("Updating m_lastCall from " + m_lastCall + " to " + m_hisCall);
          m_lastCall = m_hisCall;
+         m_remoteInitiatedQso = false;  // this QSO is done; don't carry the flag into the next one
          if (ui->cbAutoCQ->isChecked() || ui->cbAutoCall->isChecked()) {
              if (m_zdebug) log("QSO Logged: " + m_hisCall);
              // initLogQSO already calls accept() when autoLog is on for contests

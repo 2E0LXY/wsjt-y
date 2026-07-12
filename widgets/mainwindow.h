@@ -1041,6 +1041,7 @@ private:
   QTimer m_heartbeat;
   MessageClient * m_messageClient;
   RemoteBridge  * m_remoteBridge = nullptr;
+  bool            m_remoteInitiatedQso = false;  // true if the CURRENT QSO was started via a reply from the companion app — forces auto-log at completion since there's no one at the desktop to confirm a prompt-to-log dialog
   PSKReporter m_psk_Reporter;
   DisplayManual m_manual;
   QHash<QString, QVariant> m_pwrBandTxMemory; // Remembers power level by band
