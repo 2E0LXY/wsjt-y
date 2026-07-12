@@ -93,8 +93,35 @@ bool AutoBandHop::inWindow(int hour, int start, int end)
 int AutoBandHop::scoreFor(BandEntry const& b, int utcHour, int monthIndex)
 {
     // monthIndex 0=Jan … 11=Dec
-    const bool timeOK  = inWindow(utcHour, b.startUTC, b.endUTC);
-    const bool monthOK = (b.monthMask >> monthIndex) & 1;
+    //
+    // A band coded as 24/7 (startUTC=0, endUTC=24) and/or year-round
+    // (monthMask covering all 12 months) is *always* "in window" — that's
+    // not a signal that conditions are currently good, it's the absence of
+    // any constraint. It previously earned the same +10 "perfect match"
+    // bonus a genuinely time-restricted band only gets during its real,
+    // narrow peak — which let 40m (24/7, year-round, basePriority 6)
+    // permanently outscore every other band all day, every day, all year,
+    // structurally dominating regardless of actual time or month. That's
+    // the exact symptom reported: hops to 40m once, never leaves.
+    //
+    // Simply zeroing the bonus over-corrects the other way — simulated
+    // across the full 24h x 12-month grid, 40m/30m then never won a
+    // single hour, since even bands with only partial credit (in-window-
+    // only or in-month-only) still beat a bare basePriority. A small flat
+    // reliability bonus (kAlwaysOnBonus) sits deliberately between "no
+    // credit" and "in-month-only" credit (+3): enough for 40m to win
+    // genuine gaps where no time-restricted band's window or season
+    // applies (its actual real-world niche — spring/summer/autumn
+    // nights, per its own "best at night" comment above), not enough to
+    // beat any band with a real, non-trivial match.
+    constexpr int kAlwaysOnBonus = 4;
+    const bool alwaysTime  = (b.startUTC == 0 && b.endUTC == 24);
+    const bool alwaysMonth = (b.monthMask == 0xFFF);
+    if (alwaysTime && alwaysMonth) {
+        return b.basePriority + kAlwaysOnBonus;
+    }
+    const bool timeOK  = alwaysTime  ? false : inWindow(utcHour, b.startUTC, b.endUTC);
+    const bool monthOK = alwaysMonth ? false : ((b.monthMask >> monthIndex) & 1);
 
     int score = b.basePriority;
     if (timeOK && monthOK) score += 10;
