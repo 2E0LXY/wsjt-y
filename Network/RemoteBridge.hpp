@@ -72,7 +72,8 @@ public:
                      QString const& mode, QString const& message, bool is_cq, bool for_me);
   void send_status (Frequency dial_frequency, QString const& mode, QString const& dx_call,
                     QString const& tx_message,
-                     QString const& dx_grid, bool tx_enabled, bool transmitting);
+                     QString const& dx_grid, bool tx_enabled, bool transmitting,
+                     bool auto_cq, bool cq_only);
   void send_qso_logged (QString const& call, QString const& grid, Frequency dial_frequency,
                          QString const& mode, QString const& report_sent, QString const& report_rcvd);
   void send_decodes_cleared ();
@@ -82,6 +83,8 @@ Q_SIGNALS:
   void reply_requested (QString call, QString grid, quint32 audio_freq_hz);
   void halt_tx_requested ();
   void set_band_requested (Frequency freq_hz, QString band_name);
+  void set_auto_cq_requested (bool on);
+  void set_cq_only_requested (bool on);
   void connection_state_changed (bool connected);          // relay mode
   void direct_client_count_changed (int count);             // direct mode
 

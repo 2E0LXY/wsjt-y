@@ -274,6 +274,14 @@ void RemoteBridge::handle_incoming_json (QString const& message)
       Q_EMIT set_band_requested (static_cast<Frequency> (obj.value ("freq_hz").toDouble (0)),
                                   obj.value ("band").toString ());
     }
+  else if ("set_auto_cq" == type)
+    {
+      Q_EMIT set_auto_cq_requested (obj.value ("on").toBool (false));
+    }
+  else if ("set_cq_only" == type)
+    {
+      Q_EMIT set_cq_only_requested (obj.value ("on").toBool (false));
+    }
   // Unknown message types are ignored — keeps the wire protocol
   // forward-compatible with a newer app talking to an older WSJT-Y.
 }
@@ -303,13 +311,15 @@ void RemoteBridge::send_decode (QString const& utc_hms, int snr, double dt, quin
 
 void RemoteBridge::send_status (Frequency dial_frequency, QString const& mode, QString const& dx_call,
                                  QString const& tx_message,
-                                 QString const& dx_grid, bool tx_enabled, bool transmitting)
+                                 QString const& dx_grid, bool tx_enabled, bool transmitting,
+                                 bool auto_cq, bool cq_only)
 {
   last_status_ = QJsonObject {
       {"type", "status"}, {"dial_freq_hz", static_cast<double> (dial_frequency)},
       {"mode", mode}, {"dx_call", dx_call}, {"dx_grid", dx_grid},
       {"tx_msg", tx_message},
-      {"tx_enabled", tx_enabled}, {"transmitting", transmitting}
+      {"tx_enabled", tx_enabled}, {"transmitting", transmitting},
+      {"auto_cq", auto_cq}, {"cq_only", cq_only}
     };
   send_json (last_status_);
 }

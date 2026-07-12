@@ -1005,6 +1005,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     if (ui->autoButton->isChecked ()) ui->autoButton->click ();
   });
   connect (m_remoteBridge, &RemoteBridge::set_band_requested, this, &MainWindow::handleRemoteSetBand);
+  connect (m_remoteBridge, &RemoteBridge::set_auto_cq_requested, this, [this](bool on) {
+    if (ui->cbAutoCQ->isEnabled () && ui->cbAutoCQ->isChecked () != on) ui->cbAutoCQ->setChecked (on);
+  });
+  connect (m_remoteBridge, &RemoteBridge::set_cq_only_requested, this, [this](bool on) {
+    if (ui->cbCQonly->isEnabled () && ui->cbCQonly->isChecked () != on) ui->cbCQonly->setChecked (on);
+  });
   {
     QUrl const relayUrl = m_settings->value ("remoteRelayUrl").toUrl ();
     QString const token = m_settings->value ("remoteRelayToken").toString ();
@@ -12637,7 +12643,8 @@ void MainWindow::statusUpdate () const
   if (m_remoteBridge)
     m_remoteBridge->send_status (m_freqNominal, m_mode, m_hisCall,
                                   m_currentMessage.trimmed (), m_hisGrid,
-                                  ui->autoButton->isChecked (), m_transmitting);
+                                  ui->autoButton->isChecked (), m_transmitting,
+                                  ui->cbAutoCQ->isChecked (), ui->cbCQonly->isChecked ());
 }
 
 void MainWindow::childEvent (QChildEvent * e)
