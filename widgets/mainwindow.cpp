@@ -16047,7 +16047,7 @@ void MainWindow::on_actionDark_mode_triggered() {
 
         // WSJT-Y teal accent overlay — applied on top of QDarkStyleSheet
         styleSheet += R"(
-QMainWindow { background: #060b12; }
+QMainWindow { background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #001D3F, stop:0.5 #06413B, stop:1 #0E5A40); }
 QDockWidget {
     background: #080e18;
     border: 1px solid #0d2035;
