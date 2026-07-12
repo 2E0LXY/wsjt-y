@@ -266,7 +266,7 @@ void WideGraph::keyPressEvent(QKeyEvent *e)                                 //F1
     emit f11f12(n);
     break;
   default:
-    QDialog::keyPressEvent (e);
+    QWidget::keyPressEvent (e);
   }
 }
 
