@@ -864,6 +864,20 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     else                      pinDockWidget (m_wideGraphDock, Qt::TopDockWidgetArea,   QString ());
   }
   registerDockInViewMenu (m_wideGraphDock, tr ("Waterfall"));
+  // WideGraph::showEvent/hideEvent mirror child-widget visibility onto
+  // this dock (see widgets/widegraph.cpp), but that's only half the loop.
+  // Any of the many existing m_wideGraph->hide()/show() call sites
+  // elsewhere in this file set the CHILD widget's own explicit visibility
+  // state directly; simply making the DOCK visible again afterwards
+  // (closing it via its [x], then reopening via this View menu action)
+  // does not automatically clear that explicit state on a widget that
+  // was hidden directly rather than only via parent cascade -- leaving
+  // an empty dock frame with the actual waterfall content still hidden
+  // inside it. Mirror dock visibility onto the child explicitly too, so
+  // the two can never drift apart regardless of which one changed first.
+  connect (m_wideGraphDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
+    if (m_wideGraph && m_wideGraph->isVisible () != visible) m_wideGraph->setVisible (visible);
+  });
 
   // The waterfall's own lower "Controls" strip (bins/pixel, palette, gain/
   // zero sliders, etc — toggled via the Controls checkbox overlaid on the

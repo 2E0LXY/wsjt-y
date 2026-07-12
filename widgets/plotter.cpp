@@ -125,6 +125,25 @@ void CPlotter::resizeEvent(QResizeEvent* )                    //resizeEvent()
   DrawOverlay();
 }
 
+void CPlotter::showEvent(QShowEvent* )
+{
+  // A widget hosted inside a QDockWidget can receive its very first
+  // resizeEvent with an invalid/zero size, before the dock has been
+  // given real layout geometry -- resizeEvent() bails out early in that
+  // case (size().isValid() check above) and never initialises
+  // m_OverlayPixmap etc, leaving DrawOverlay() a silent no-op. Nothing
+  // else was guaranteed to trigger a later resize on its own, which is
+  // why toggling something unrelated that happens to force a layout
+  // recalculation (e.g. the waterfall Controls bar) "fixed" the
+  // callsign overlay -- it wasn't related to Controls at all, it just
+  // incidentally caused the resize CPlotter actually needed. Force it
+  // directly here instead, once the widget is genuinely on screen with
+  // a real size.
+  if (m_OverlayPixmap.isNull() && size().isValid()) {
+    resizeEvent (nullptr);
+  }
+}
+
 void CPlotter::paintEvent(QPaintEvent *)                                // paintEvent()
 {
   if(m_paintEventBusy) return;
