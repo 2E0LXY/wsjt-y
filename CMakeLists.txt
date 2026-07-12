@@ -2021,7 +2021,15 @@ if (WIN32)
   # looking at a closed window with no obvious sign anything happened.
   # EXTRA_INSTALL_COMMANDS runs as plain Section code, which executes
   # regardless of silent/interactive mode.
-  set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "Exec '\"$INSTDIR\\wsjtx.exe\"'")
+  # Forward slash deliberately, not backslash: this value gets written by
+  # CPack into a SECOND generated file (CPackConfig.cmake) which then gets
+  # parsed by CMake again -- a literal backslash survives one parse pass
+  # but not two ("Invalid character escape" on the reparse, since CMake's
+  # own escape rules don't treat \w as anything special). NSIS and the
+  # underlying Windows CreateProcess call both accept forward slashes in
+  # paths interchangeably with backslashes, so this avoids the ambiguity
+  # entirely rather than trying to get multi-layer escaping exactly right.
+  set (CPACK_NSIS_EXTRA_INSTALL_COMMANDS "Exec '\"$INSTDIR/wsjtx.exe\"'")
 elseif (APPLE)
   set (CPACK_GENERATOR "DragNDrop")
   set (CPACK_PACKAGE_FILE_NAME "wsjty-${VERSION_Z}-macos")
