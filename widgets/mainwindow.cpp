@@ -906,6 +906,51 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     wfControlsBar->addWidget (m_wideGraph->controlsWidget ());
   }
 
+  // ── Band Activity + Rx Frequency: dock into the main window ───────────────
+  // Both were already complete, self-contained QFrames (frame / frame_2)
+  // sitting inside decodes_splitter -- every ui->decodedTextBrowser,
+  // ui->dxCallEntry etc reference throughout this file keeps working
+  // completely unchanged, since setWidget() only reparents the existing
+  // objects, it doesn't recreate them. decodes_splitter is left with no
+  // children afterwards and hidden so it doesn't reserve blank space in
+  // the central widget -- L_Buttons (Log QSO/Stop/Monitor/... row) is the
+  // only thing left there, which is exactly right: it's a persistent
+  // action bar, not something that makes sense to float or re-dock.
+  auto makeContentDock = [this](QString const& title, QString const& objectName,
+                                  QWidget *content, Qt::DockWidgetArea defaultArea,
+                                  QString const& settingsKey) {
+    auto *dock = new QDockWidget (title, this);
+    dock->setObjectName (objectName);
+    dock->setWidget (content);
+    dock->setFeatures (QDockWidget::DockWidgetClosable |
+                        QDockWidget::DockWidgetMovable  |
+                        QDockWidget::DockWidgetFloatable);
+    dock->setContextMenuPolicy (Qt::CustomContextMenu);
+    connect (dock, &QWidget::customContextMenuRequested, this,
+             [this, dock, settingsKey](QPoint const& pos) {
+      QMenu m;
+      m.addAction (tr ("Pin Left"),       [this, dock, settingsKey]{ pinDockWidget (dock, Qt::LeftDockWidgetArea,   settingsKey); });
+      m.addAction (tr ("Pin Right"),      [this, dock, settingsKey]{ pinDockWidget (dock, Qt::RightDockWidgetArea,  settingsKey); });
+      m.addAction (tr ("Pin Top"),        [this, dock, settingsKey]{ pinDockWidget (dock, Qt::TopDockWidgetArea,    settingsKey); });
+      m.addAction (tr ("Float (detach)"), [this, dock, settingsKey]{ pinDockWidget (dock, Qt::NoDockWidgetArea,     settingsKey); });
+      m.exec (dock->mapToGlobal (pos));
+    });
+    const QString area = m_settings->value (settingsKey, "").toString ();
+    if (area == "left")       pinDockWidget (dock, Qt::LeftDockWidgetArea,  QString ());
+    else if (area == "right") pinDockWidget (dock, Qt::RightDockWidgetArea, QString ());
+    else if (area == "top")   pinDockWidget (dock, Qt::TopDockWidgetArea,   QString ());
+    else if (area == "float") pinDockWidget (dock, Qt::NoDockWidgetArea,    QString ());
+    else                      pinDockWidget (dock, defaultArea,             QString ());
+    registerDockInViewMenu (dock, title);
+    return dock;
+  };
+
+  m_bandActivityDock = makeContentDock (tr ("Band Activity"), "BandActivityDock",
+                                         ui->frame, Qt::LeftDockWidgetArea, "bandActivityArea");
+  m_rxFrequencyDock  = makeContentDock (tr ("Rx Frequency"), "RxFrequencyDock",
+                                         ui->frame_2, Qt::RightDockWidgetArea, "rxFrequencyArea");
+  ui->decodes_splitter->hide ();
+
   // ── Band quick-select toolbar (WSJT-X Improved) ──────────────────────────────
   {
     auto *bandBar = addToolBar(tr("Band Select"));
@@ -2082,7 +2127,6 @@ void MainWindow::writeSettings()
   m_settings->setValue ("FT8AP", ui->actionEnable_AP_FT8->isChecked ());
   m_settings->setValue ("JT65AP", ui->actionEnable_AP_JT65->isChecked ());
   m_settings->setValue ("AutoClearAvg", ui->actionAuto_Clear_Avg->isChecked ());
-  m_settings->setValue("SplitterState",ui->decodes_splitter->saveState());
   m_settings->setValue("Blanker",ui->sbNB->value());
   m_settings->setValue("Score",m_score);
   m_settings->setValue("labDXpedText",ui->labDXped->text());
@@ -2522,7 +2566,6 @@ void MainWindow::readSettings()
   ui->actionEnable_AP_FT8->setChecked (m_settings->value ("FT8AP", false).toBool());
   ui->actionEnable_AP_JT65->setChecked (m_settings->value ("JT65AP", false).toBool());
   ui->actionAuto_Clear_Avg->setChecked (m_settings->value ("AutoClearAvg", false).toBool());
-  ui->decodes_splitter->restoreState(m_settings->value("SplitterState").toByteArray());
   ui->sbNB->setValue(m_settings->value("Blanker",0).toInt());
   ui->sbEchoAvg->setValue(m_settings->value("EchoAvg",10).toInt());
   {
