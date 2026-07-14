@@ -929,15 +929,13 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     wfControlsBar->addWidget (m_wideGraph->controlsWidget ());
   }
 
-  // ── Band quick-select panel (WSJT-X Improved) — dockable ──────────────────
+  // ── Band quick-select toolbar (WSJT-X Improved) ──────────────────────────────
   {
-    auto *bandBarWidget = new QWidget(this);
-    bandBarWidget->setObjectName("BandSelectPanel");
-    auto *bandBarLayout = new QHBoxLayout(bandBarWidget);
-    bandBarLayout->setContentsMargins(4, 1, 4, 1);
-    bandBarLayout->setSpacing(2);
-    bandBarWidget->setStyleSheet(
-        "QWidget#BandSelectPanel{background:#060b12;}"
+    auto *bandBar = addToolBar(tr("Band Select"));
+    bandBar->setObjectName("BandSelectToolbar");
+    bandBar->setMovable(false);
+    bandBar->setStyleSheet(
+        "QToolBar{background:#060b12;border-bottom:1px solid #0d2035;spacing:2px;padding:1px;}"
         "QToolButton{background:#0a1828;border:1px solid #1a4060;color:#5090b0;"
         "font-size:10px;font-weight:bold;padding:2px 7px;border-radius:3px;min-width:34px;}"
         "QToolButton:hover{background:#0d2840;color:#00c8ff;border-color:#0080b0;}");
@@ -952,15 +950,12 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
             m_bandEdited = true;
             band_changed(static_cast<Frequency>(b.freqMHz * 1.0e6 + 0.5));
         });
-        bandBarLayout->addWidget(btn);
+        bandBar->addWidget(btn);
     }
 
     // ── Separator then Auto Band Hop toggle ───────────────────────────────────
-    auto *sep = new QFrame(bandBarWidget);
-    sep->setFrameShape(QFrame::VLine);
-    sep->setStyleSheet("QFrame{color:#1a4060;}");
-    bandBarLayout->addWidget(sep);
-    auto *hopCheck = new QCheckBox(tr("Auto Hop"), bandBarWidget);
+    bandBar->addSeparator();
+    auto *hopCheck = new QCheckBox(tr("Auto Hop"), bandBar);
     hopCheck->setToolTip(tr(
         "Auto Band Hop: WSJT-Y automatically selects the best FT8 band\n"
         "based on UTC time, season, and propagation physics\n"
@@ -969,18 +964,17 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     hopCheck->setStyleSheet(
         "QCheckBox{color:#00d4aa;font-weight:bold;font-size:10px;padding:0 4px;}"
         "QCheckBox::indicator:checked{background:#006040;border:1px solid #00a060;}");
-    bandBarLayout->addWidget(hopCheck);
+    bandBar->addWidget(hopCheck);
 
     // Interval spin box
-    auto *hopSpin = new QSpinBox(bandBarWidget);
+    auto *hopSpin = new QSpinBox(bandBar);
     hopSpin->setRange(1, 60); hopSpin->setValue(5);
     hopSpin->setSuffix(" min");
     hopSpin->setToolTip(tr("How often Auto Band Hop re-evaluates and potentially switches band"));
     hopSpin->setStyleSheet(
         "QSpinBox{background:#060b12;border:1px solid #1a4060;color:#80c0a0;"
         "font-size:10px;padding:1px 3px;max-width:58px;}");
-    bandBarLayout->addWidget(hopSpin);
-    bandBarLayout->addStretch(1);
+    bandBar->addWidget(hopSpin);
 
     m_autoBandHop = new AutoBandHop(this);
     connect(hopCheck, &QCheckBox::toggled, this, [this](bool on){
@@ -991,33 +985,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     });
     connect(m_autoBandHop, &AutoBandHop::hopRequested,
             this, &MainWindow::onAutoBandHop);
-
-    m_bandSelectDock = new QDockWidget(tr("Band Select"), this);
-    m_bandSelectDock->setObjectName("BandSelectDock");
-    m_bandSelectDock->setWidget(bandBarWidget);
-    m_bandSelectDock->setFeatures(QDockWidget::DockWidgetClosable |
-                                   QDockWidget::DockWidgetMovable |
-                                   QDockWidget::DockWidgetFloatable);
-    m_bandSelectDock->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(m_bandSelectDock, &QWidget::customContextMenuRequested, this,
-            [this](QPoint const& pos) {
-      QMenu m;
-      m.addAction(tr("Pin Left"),      [this]{ pinDockWidget(m_bandSelectDock, Qt::LeftDockWidgetArea,   "bandSelectArea"); });
-      m.addAction(tr("Pin Right"),     [this]{ pinDockWidget(m_bandSelectDock, Qt::RightDockWidgetArea,  "bandSelectArea"); });
-      m.addAction(tr("Pin Top"),       [this]{ pinDockWidget(m_bandSelectDock, Qt::TopDockWidgetArea,    "bandSelectArea"); });
-      m.addAction(tr("Pin Bottom"),    [this]{ pinDockWidget(m_bandSelectDock, Qt::BottomDockWidgetArea, "bandSelectArea"); });
-      m.addAction(tr("Float (detach)"),[this]{ pinDockWidget(m_bandSelectDock, Qt::NoDockWidgetArea,     "bandSelectArea"); });
-      m.exec(m_bandSelectDock->mapToGlobal(pos));
-    });
-    {
-      const QString area = m_settings->value("bandSelectArea", "top").toString();
-      if (area == "left")        pinDockWidget(m_bandSelectDock, Qt::LeftDockWidgetArea,   QString());
-      else if (area == "right")  pinDockWidget(m_bandSelectDock, Qt::RightDockWidgetArea,  QString());
-      else if (area == "bottom") pinDockWidget(m_bandSelectDock, Qt::BottomDockWidgetArea, QString());
-      else if (area == "float")  pinDockWidget(m_bandSelectDock, Qt::NoDockWidgetArea,     QString());
-      else                       pinDockWidget(m_bandSelectDock, Qt::TopDockWidgetArea,    QString());
-    }
-    registerDockInViewMenu(m_bandSelectDock, tr("Band Select"));
   }
 
   // ── Auto-updater ─────────────────────────────────────────────────────────

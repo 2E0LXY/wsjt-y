@@ -574,7 +574,6 @@ private:
 
   QScopedPointer<WideGraph> m_wideGraph;
   QDockWidget * m_wideGraphDock = nullptr;
-  QDockWidget * m_bandSelectDock = nullptr;
   QScopedPointer<EchoGraph> m_echoGraph;
   QScopedPointer<FastGraph> m_fastGraph;
   QScopedPointer<LogQSO> m_logDlg;
