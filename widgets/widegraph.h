@@ -46,6 +46,15 @@ public:
   // layout it physically lives in.
   QWidget * controlsWidget () const;
 
+  // Appends an additional widget to the bottom of this widget's own
+  // vertical layout (below the waterfall plot and Controls strip).
+  // Used to host Band Select as a third row in the same dock as the
+  // waterfall, since it's the only way to guarantee "waterfall, then
+  // controls, then band select" stacking -- a separate toolbar or dock
+  // for band select would render in a different area of the main
+  // window regardless of add order.
+  void appendBottomWidget (QWidget * w);
+
   void   dataSink2(float s[], float df3, int ihsym, int ndiskdata, float pdB);
   void   setRxFreq(int n);
   int    rxFreq();

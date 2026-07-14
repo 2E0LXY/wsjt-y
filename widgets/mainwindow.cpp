@@ -744,8 +744,6 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     QMenu m;
     m.addAction(tr("Pin Left"),      [this]{ pinDockWidget(m_dxMapDock, Qt::LeftDockWidgetArea,   "dxMapArea"); });
     m.addAction(tr("Pin Right"),     [this]{ pinDockWidget(m_dxMapDock, Qt::RightDockWidgetArea,  "dxMapArea"); });
-    m.addAction(tr("Pin Top"),       [this]{ pinDockWidget(m_dxMapDock, Qt::TopDockWidgetArea,    "dxMapArea"); });
-    m.addAction(tr("Pin Bottom"),    [this]{ pinDockWidget(m_dxMapDock, Qt::BottomDockWidgetArea, "dxMapArea"); });
     m.addAction(tr("Float (detach)"),[this]{ pinDockWidget(m_dxMapDock, Qt::NoDockWidgetArea,     "dxMapArea"); });
     m.exec(m_dxMapDock->mapToGlobal(pos));
   });
@@ -917,25 +915,36 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
 
   // The waterfall's own lower "Controls" strip (bins/pixel, palette, gain/
   // zero sliders, etc — toggled via the Controls checkbox overlaid on the
-  // waterfall itself) is relocated out of the waterfall dock into its own
-  // toolbar, positioned above Band Select/Auto Hop. on_cbControls_toggled()
-  // still just calls setVisible() on this same widget, unchanged, so the
-  // existing checkbox keeps controlling it correctly regardless of which
-  // layout it now physically lives in.
-  {
-    auto *wfControlsBar = addToolBar (tr ("Waterfall Controls"));
-    wfControlsBar->setObjectName ("WideGraphControlsToolbar");
-    wfControlsBar->setMovable (false);
-    wfControlsBar->addWidget (m_wideGraph->controlsWidget ());
-  }
+  // waterfall itself) stays inside WideGraph's own layout, directly below
+  // the waterfall plot -- its original position. A separate toolbar here
+  // would always render in Qt's toolbar band, which sits above ALL dock
+  // widgets regardless of add order, making "waterfall, then controls"
+  // impossible to achieve as two separate top-level items. Keeping it
+  // part of the same widget as the waterfall is the only way to
+  // guarantee that ordering. on_cbControls_toggled() is unaffected --
+  // it still just calls setVisible() on this same widget.
 
-  // ── Band quick-select toolbar (WSJT-X Improved) ──────────────────────────────
+  // ── Band quick-select row (WSJT-X Improved) — third row inside the
+  // waterfall dock, below the plot and Controls strip. Same reasoning as
+  // Controls above: this can't be a separate toolbar or dock and still
+  // end up positioned below the waterfall, since Qt's toolbar band
+  // always renders above the dock area regardless of add order, and a
+  // separate dock has no guaranteed position relative to another dock
+  // without relying on Qt's insertion-order heuristics (which is
+  // exactly what went wrong last time — no explicit height constraint
+  // on a standalone dock let it claim far more vertical space than its
+  // content needed). Explicit setMaximumHeight() here is a direct,
+  // deliberate fix for that same mistake, not a repeat of it.
   {
-    auto *bandBar = addToolBar(tr("Band Select"));
-    bandBar->setObjectName("BandSelectToolbar");
-    bandBar->setMovable(false);
-    bandBar->setStyleSheet(
-        "QToolBar{background:#060b12;border-bottom:1px solid #0d2035;spacing:2px;padding:1px;}"
+    auto *bandBarWidget = new QWidget;
+    bandBarWidget->setObjectName("BandSelectRow");
+    bandBarWidget->setMaximumHeight(30);
+    bandBarWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    auto *bandBarLayout = new QHBoxLayout(bandBarWidget);
+    bandBarLayout->setContentsMargins(4, 2, 4, 2);
+    bandBarLayout->setSpacing(2);
+    bandBarWidget->setStyleSheet(
+        "QWidget#BandSelectRow{background:#060b12;border-bottom:1px solid #0d2035;}"
         "QToolButton{background:#0a1828;border:1px solid #1a4060;color:#5090b0;"
         "font-size:10px;font-weight:bold;padding:2px 7px;border-radius:3px;min-width:34px;}"
         "QToolButton:hover{background:#0d2840;color:#00c8ff;border-color:#0080b0;}");
@@ -950,12 +959,15 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
             m_bandEdited = true;
             band_changed(static_cast<Frequency>(b.freqMHz * 1.0e6 + 0.5));
         });
-        bandBar->addWidget(btn);
+        bandBarLayout->addWidget(btn);
     }
 
     // ── Separator then Auto Band Hop toggle ───────────────────────────────────
-    bandBar->addSeparator();
-    auto *hopCheck = new QCheckBox(tr("Auto Hop"), bandBar);
+    auto *sep = new QFrame(bandBarWidget);
+    sep->setFrameShape(QFrame::VLine);
+    sep->setStyleSheet("QFrame{color:#1a4060;}");
+    bandBarLayout->addWidget(sep);
+    auto *hopCheck = new QCheckBox(tr("Auto Hop"), bandBarWidget);
     hopCheck->setToolTip(tr(
         "Auto Band Hop: WSJT-Y automatically selects the best FT8 band\n"
         "based on UTC time, season, and propagation physics\n"
@@ -964,17 +976,18 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     hopCheck->setStyleSheet(
         "QCheckBox{color:#00d4aa;font-weight:bold;font-size:10px;padding:0 4px;}"
         "QCheckBox::indicator:checked{background:#006040;border:1px solid #00a060;}");
-    bandBar->addWidget(hopCheck);
+    bandBarLayout->addWidget(hopCheck);
 
     // Interval spin box
-    auto *hopSpin = new QSpinBox(bandBar);
+    auto *hopSpin = new QSpinBox(bandBarWidget);
     hopSpin->setRange(1, 60); hopSpin->setValue(5);
     hopSpin->setSuffix(" min");
     hopSpin->setToolTip(tr("How often Auto Band Hop re-evaluates and potentially switches band"));
     hopSpin->setStyleSheet(
         "QSpinBox{background:#060b12;border:1px solid #1a4060;color:#80c0a0;"
         "font-size:10px;padding:1px 3px;max-width:58px;}");
-    bandBar->addWidget(hopSpin);
+    bandBarLayout->addWidget(hopSpin);
+    bandBarLayout->addStretch(1);
 
     m_autoBandHop = new AutoBandHop(this);
     connect(hopCheck, &QCheckBox::toggled, this, [this](bool on){
@@ -985,6 +998,8 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
     });
     connect(m_autoBandHop, &AutoBandHop::hopRequested,
             this, &MainWindow::onAutoBandHop);
+
+    m_wideGraph->appendBottomWidget(bandBarWidget);
   }
 
   // ── Auto-updater ─────────────────────────────────────────────────────────

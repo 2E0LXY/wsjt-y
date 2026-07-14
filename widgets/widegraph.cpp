@@ -148,6 +148,11 @@ QWidget * WideGraph::controlsWidget () const
   return ui->controls_widget;
 }
 
+void WideGraph::appendBottomWidget (QWidget * w)
+{
+  ui->verticalLayout->addWidget (w);
+}
+
 void WideGraph::saveSettings()                                           //saveSettings
 {
   SettingsGroup g {m_settings, "WideGraph"};
