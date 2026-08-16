@@ -1973,7 +1973,7 @@ if (NOT WIN32 AND NOT APPLE)
   # install a desktop file so wsjtx appears in the application start
   # menu with an icon
   install (
-    FILES wsjtx.desktop message_aggregator.desktop
+    FILES wsjtx.desktop
     DESTINATION share/applications
     #COMPONENT runtime
     )

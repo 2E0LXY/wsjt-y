@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.0
-Name=wsjtx
-Comment=Amateur Radio Weak Signal Operating
+Name=WSJT-Y
+Comment=Amateur Radio Weak Signal Operating (FT8/FT4)
 Exec=wsjtx
 Icon=wsjtx_icon
 Terminal=false
