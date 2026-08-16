@@ -25,7 +25,7 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build git ca-certificates \
+            build-essential cmake ninja-build git ca-certificates file \
             gfortran \
             qtbase5-dev qt5-qmake qttools5-dev qttools5-dev-tools \
             qtmultimedia5-dev libqt5multimedia5-plugins \
