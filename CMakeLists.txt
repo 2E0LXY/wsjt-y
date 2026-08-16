@@ -2099,7 +2099,15 @@ else ()
 endif ()
 
 set (CPACK_DEBIAN_PACKAGE_HOMEPAGE "${PROJECT_HOMEPAGE}")
-set (CPACK_DEBIAN_PACKAGE_DEPENDS "libgfortran5 (>=8.3) | libgfortran4 (>=7.3) | libgfortran3 (>=6.3), libfftw3-single3 (>=3.3), libgomp1 (>=6), libqt5serialport5 (>=5.7), libqt5multimedia5-plugins (>=5.7), libqt5widgets5 (>=5.7), libqt5network5 (>=5.7), libqt5printsupport5 (>=5.7), libqt5sql5-sqlite (>=5.7), libusb-1.0-0 (>=1.0.21), libboost-log1.62.0 (>=1.62.0) | libboost-log1.65.1 (>=1.65.1) | libboost-log1.67.0 (>=1.67.0) | libboost-log1.71.0 (>=1.71.0) | libboost-log1.74.0 (>=1.74.0), libssl3 (>=3.0) | libssl1.1 (>=1.1.1)")
+# dpkg-shlibdeps (enabled below) generates correctly versioned dependencies
+# for every library the binary actually links against, on whatever Debian/
+# Ubuntu release the package is built on. Hardcoding versioned deps here —
+# especially boost-log and libssl — breaks on newer releases (e.g. Debian 13
+# trixie ships libboost-log1.83.0, outside the old pinned alternatives).
+# List ONLY runtime pieces that are dlopen'd/plugin-loaded and therefore
+# invisible to shlibdeps: the Qt multimedia audio backend and the SQLite
+# SQL driver plugin. These package names are stable across bookworm/trixie.
+set (CPACK_DEBIAN_PACKAGE_DEPENDS "libqt5multimedia5-plugins, libqt5sql5-sqlite")
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 set (CPACK_RPM_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
