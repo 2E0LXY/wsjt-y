@@ -375,6 +375,7 @@ set (wsjt_FSRCS
   lib/jt9_decode.f90
   lib/options.f90
   lib/packjt.f90
+  lib/77bit/packjt77_grammar.f90
   lib/77bit/packjt77.f90
   lib/qra/q65/q65.f90
   lib/q65_decode.f90
@@ -389,8 +390,28 @@ set (wsjt_FSRCS
   lib/superfox/julian.f90
   lib/superfox/popen_module.f90
   lib/superfox/qpc/qpc_mod.f90
+  lib/jtty/jtty_source_codec.f90
+  lib/jtty/jtty_mod.f90
+  lib/jtty/jtty_tbcc_code_profile.f90
+  lib/jtty/jtty_tbcc_list_decoder.f90
+  lib/jtty/tbcc.f90
+  lib/jtty/jtty_tbcc_decoder.f90
+  lib/jtty/jtty_payload_correlators.f90
+  lib/jtty/jtty_fec_mod.f90
+  lib/jtty/jttycom.f90
+  lib/jtty/jtty_mdecode.f90
+  lib/jtty/jtty_receive_context.f90
 
   # remaining non-module sources
+  lib/jtty/jtty_decode.f90
+  lib/jtty/rjtty_sub.f90
+  lib/jtty/jtty_peakup.f90
+  lib/jtty/jtty_block_pow.f90
+  lib/jtty/ana64a.f90
+  lib/jtty/genjtty.f90
+  lib/jtty/gen_jttywave.f90
+  lib/jtty/gen_syncwave.f90
+  lib/jtty/subtract_jtty.f90
   lib/addit.f90
   lib/afc65b.f90
   lib/afc9.f90
