@@ -57,8 +57,11 @@ jobs:
         run: |
           BASE=https://repo.msys2.org/mingw/mingw64
 
-          # Pin compiler binaries via pacman (safe -- no reverse deps)
-          pacman -U --noconfirm --nodeps \
+          # Pin compiler binaries via pacman (safe -- no reverse deps).
+          # Since GCC 16, libgomp and libgfortran are separate packages
+          # whose static/import libraries GCC 14 also ships; let GCC 14's
+          # copies win so they match the compiler being pinned.
+          pacman -U --noconfirm --nodeps --overwrite '/mingw64/lib/*' --overwrite '/mingw64/share/info/*' \
             "${BASE}/mingw-w64-x86_64-gcc-14.2.0-3-any.pkg.tar.zst" \
             "${BASE}/mingw-w64-x86_64-gcc-fortran-14.2.0-3-any.pkg.tar.zst"
 
