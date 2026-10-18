@@ -99,6 +99,17 @@ jobs:
           cp /mingw64/bin/zlib1.dll           contrib/tls/zlib1.dll
           ls -la contrib/tls/
 
+      # MSYS2 no longer ships libusb for mingw64, but CMakeLists.txt and
+      # FindHamlib.cmake require it, so build it the same way as Hamlib.
+      - name: Build and install libusb 1.0.27 from source
+        run: |
+          curl -L https://github.com/libusb/libusb/releases/download/v1.0.27/libusb-1.0.27.tar.bz2 \
+            | tar xj
+          cd libusb-1.0.27
+          ./configure --prefix=/mingw64 --disable-static
+          make -j$(nproc)
+          make install
+
       - name: Build and install Hamlib 4.5.5 from source
         run: |
           curl -L https://github.com/Hamlib/Hamlib/releases/download/4.5.5/hamlib-4.5.5.tar.gz \
