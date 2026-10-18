@@ -266,13 +266,15 @@ void JttyPanel::applyUpdates (QVector<Jtty::ReceiveUpdate> const& updates)
   auto const now = QDateTime::currentDateTimeUtc ().toString ("hhmmss");
   for (auto const& update : updates)
     {
-      if (update.text.isEmpty ()) continue;
+      // WSJT-X live entry pads typing pauses with filler inside the message
+      auto const text = Jtty::stripJttyFillerText (update.text);
+      if (text.trimmed ().isEmpty ()) continue;
       auto const complete = update.terminal == Jtty::ReceiveTerminal::Complete;
       auto known = line_index_.constFind (update.messageId);
       if (known != line_index_.constEnd ())
         {
           auto& line = lines_[*known];
-          line.text = update.text;
+          line.text = text;
           line.frequency = update.frequency;
           line.snr = update.snr;
           line.complete = complete;
@@ -280,7 +282,7 @@ void JttyPanel::applyUpdates (QVector<Jtty::ReceiveUpdate> const& updates)
       else
         {
           line_index_.insert (update.messageId, lines_.size ());
-          lines_ << Line {update.messageId, update.frequency, update.snr, update.text, complete, now};
+          lines_ << Line {update.messageId, update.frequency, update.snr, text, complete, now};
         }
     }
   if (lines_.size () > max_lines)

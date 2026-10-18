@@ -44,20 +44,19 @@ namespace Jtty
     QStringList sent_lines;
     for (auto const& line : prepared.text.split (QLatin1Char {'\n'}))
       {
-        QVector<QVector<int>> segments;
-        QStringList texts;
+        // Every segment carries the end-of-message bit: the receiver holds
+        // a message in 80 columns (lib/jtty/jtty_mdecode.f90), so frames of
+        // a following segment without it would be appended and cut off.
+        QVector<int> line_tones;
         auto const encoded = encodeTransmitLine (line, [&] (QString const& segment) {
             QVector<int> segment_tones;
-            if (!encode_segment (segment, false, &segment_tones)) return false;
-            segments << segment_tones;
-            texts << segment;
+            if (!encode_segment (segment, true, &segment_tones)) return false;
+            line_tones += segment_tones;
             return true;
           });
         if (!encoded) return false;
-        if (segments.isEmpty ()) continue;
-        // re-encode the line's last segment with the end-of-message bit
-        if (!encode_segment (texts.last (), true, &segments.last ())) return false;
-        for (auto const& segment : segments) all += segment;
+        if (line_tones.isEmpty ()) continue;
+        all += line_tones;
         sent_lines << line.simplified ();
       }
     if (all.isEmpty ()) return false;

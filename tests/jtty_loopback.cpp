@@ -95,13 +95,14 @@ int main (int argc, char * argv[])
   app.exec ();
   receiver.stop ();
 
+  // score completed messages only; a strong signal can also produce a
+  // short-lived false fragment that the decoder later expires
   QStringList parts;
-  bool complete {!messages.isEmpty ()};
   for (auto id : messages.keys ())
     {
-      parts << messages[id];
-      complete = complete && finished[id];
+      if (finished[id]) parts << messages[id];
     }
+  bool const complete {!parts.isEmpty ()};
   auto const decoded = parts.join (' ').simplified ();
   std::printf ("sent:    \"%s\" (%d symbols, %d frames)\ndecoded: \"%s\" complete=%d\n",
                sent.toLatin1 ().constData (), tones.size (), tones.size () / Jtty::symbolsPerFrame,

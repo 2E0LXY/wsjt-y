@@ -6,9 +6,9 @@
 
 namespace Jtty
 {
-  // Encode operator text for transmission as WSJT-X 3.3 does: a
-  // newline ends a message (end-of-message bit on its last frame) and
-  // longer lines are split into 80 character messages at spaces.
+  // Encode operator text for transmission: lines are split into 80
+  // character messages at spaces as WSJT-X 3.3 does, and each message
+  // ends with the end-of-message bit so none overflows the receiver.
   // Returns false, with tones untouched, if a line can't be encoded.
   // sent receives the normalized text actually encoded.
   bool encodeMessage (QString const& text, QVector<int> * tones, QString * sent);
