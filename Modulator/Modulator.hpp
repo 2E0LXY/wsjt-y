@@ -85,6 +85,7 @@ private:
   bool m_tuning;
   bool m_addNoise;
   bool m_bFastMode;
+  bool m_jtty {false};          // JTTY: precomputed wave, more symbols than itone[] holds
 
   bool m_cwLevel;
   unsigned m_ic;

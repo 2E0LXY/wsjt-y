@@ -75,6 +75,9 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
   if(mode=="Q65" and m_nsps<=3600) delay_ms=500;              //Q65-15 and Q65-30
   if(mode=="FT4") delay_ms=300;                               //FT4
   if(mode=="FT2") delay_ms=150;                               //FT2 (half FT4)
+  bool const jtty {mode=="JTTY"};                             //JTTY starts whenever the operator sends
+  if(jtty) delay_ms=0;
+  m_jtty = jtty;
 
 // noise generator parameters
   if (m_addNoise) {
@@ -99,6 +102,12 @@ void Modulator::start (QString mode, unsigned symbolsLength, double framesPerSym
         {
           m_ic = (mstr - delay_ms) * m_frameRate / 1000;
         }
+    }
+  if (jtty)
+    {
+      // not slotted: always play the whole precomputed waveform
+      m_silentFrames = 0;
+      m_ic = 0;
     }
 
   initialize (QIODevice::ReadOnly, channel);
@@ -284,7 +293,9 @@ qint64 Modulator::readData (char * data, qint64 maxSize)
           if(!m_tuning and m_TRperiod!=3.0) isym=m_ic/(4.0*m_nsps);   //Actual fsample=48000
           if(m_bFastMode) isym=isym%m_symbolsLength;
           if (isym != m_isym0 || m_frequency != m_frequency0) {
-            if(itone[0]>=100) {
+            if(m_jtty) {
+              m_toneFrequency0=m_frequency;   // sample comes from foxcom_.wave below
+            } else if(itone[0]>=100) {
               m_toneFrequency0=itone[0];
             } else {
               if(m_toneSpacing==0.0) {

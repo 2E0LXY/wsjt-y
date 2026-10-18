@@ -2,6 +2,8 @@
 #define DETECTOR_HPP__
 #include "Audio/AudioDevice.hpp"
 #include <QScopedArrayPointer>
+#include <QByteArray>
+#include <atomic>
 
 //
 // output device that distributes data in predefined chunks via a signal
@@ -29,6 +31,12 @@ public:
   bool reset () override;
 
   Q_SIGNAL void framesWritten (qint64) const;
+
+  // JTTY receives continuously rather than per T/R period, so while
+  // enabled every down sampled block is also published here as 16-bit
+  // 12 kHz samples, independent of dec_data.params.kin wrapping
+  void setContinuousTap (bool enabled) {m_continuousTap = enabled;}
+  Q_SIGNAL void continuousSamples (QByteArray) const;
   Q_SLOT void setBlockSize (unsigned);
 
 protected:
@@ -53,6 +61,7 @@ private:
   // data (a signals worth) at
   // the input sample rate
   unsigned m_bufferPos;
+  std::atomic<bool> m_continuousTap {false};
 };
 
 #endif

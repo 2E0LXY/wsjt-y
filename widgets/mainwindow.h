@@ -104,6 +104,8 @@ class WSPRBandHopping;
 
 // Z
 class UnfilteredView;
+class JttyPanel;
+class JttyReceiver;
 class PSKReporterWidget;
 
 class HelpTextWindow;
@@ -250,6 +252,7 @@ private slots:
   void on_actionJT4_triggered();
   void on_actionFT4_triggered();
   void on_actionFT2_triggered();
+  void on_actionJTTY_triggered();
   void on_actionFT8_triggered();
   void on_actionFST4_triggered();
   void on_actionFST4W_triggered();
@@ -786,6 +789,21 @@ private:
   bool m_TxFirstLock = false;
   QList<QPair<int,QString>> m_decodesLabelCache;  // (audio_freq_hz, callsign) for waterfall overlay
   void updateWaterfallCallsigns();
+  // JTTY (mainwindow_jtty.cpp)
+  void jttySetup ();
+  void jttyLeave ();
+  void jttyTransmit (QString const& text);
+  void jttyStopTransmit ();
+  void jttyTxTick ();
+  void jttyUpdateRxWindow ();
+  JttyPanel    *m_jttyPanel = nullptr;
+  QDockWidget  *m_jttyDock = nullptr;
+  JttyReceiver *m_jttyReceiver = nullptr;
+  QTimer       *m_jttyTxTimer = nullptr;
+  bool          m_jttyTransmitting = false;
+  bool          m_jttyAudioStarted = false;
+  qint64        m_jttyTxStartMs = 0;
+  int           m_jttyTxSymbols = 0;
   DXStationMap *m_dxMap = nullptr;
   QDockWidget  *m_dxMapDock = nullptr;
   int           m_dxMapPeriod = 0;

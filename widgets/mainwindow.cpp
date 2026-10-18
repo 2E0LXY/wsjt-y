@@ -753,6 +753,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   m_dxMap->setMyCall(m_config.my_callsign());
 
   addDockWidget(Qt::LeftDockWidgetArea, m_dxMapDock);
+  jttySetup ();
   registerDockInViewMenu(m_dxMapDock, tr("DX Station Map"));
 
   // Click a station dot on the map → tune Rx and populate DX call/grid fields
@@ -1248,6 +1249,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->actionFST4W->setActionGroup(modeGroup);
   ui->actionFT4->setActionGroup(modeGroup);
   ui->actionFT2->setActionGroup(modeGroup);
+  ui->actionJTTY->setActionGroup(modeGroup);
   ui->actionFT8->setActionGroup(modeGroup);
   ui->actionJT9->setActionGroup(modeGroup);
   ui->actionJT65->setActionGroup(modeGroup);
@@ -5150,6 +5152,7 @@ void MainWindow::msgAvgDecode2()
 
 void MainWindow::decode()                                       //decode()
 {
+  if(m_mode=="JTTY") return;                          //JTTY decodes continuously in JttyReceiver
   if(m_decoderBusy) return;                          //Don't start decoder if it's already busy.
   m_fetched=0;
   // NOTE: earlyDecodes is intentionally NOT cleared here. decode() is called
@@ -7044,7 +7047,8 @@ void MainWindow::guiUpdate()
   // qDebug () << "DEBUG SF " << m_mode << m_TRperiod << m_nsps << (SpecOp::FOX==m_specOp) << sfox << txDuration;
   double tx1=0.0;
   double tx2=txDuration;
-  if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="FT2") icw[0]=0;              //No CW ID in FT4 or FT8 mode
+  if(m_mode=="FT8" or m_mode=="FT4" or m_mode=="FT2" or m_mode=="JTTY") icw[0]=0;   //No CW ID in FT4, FT8 or JTTY mode
+  if(m_mode=="JTTY") jttyUpdateRxWindow ();
   if((icw[0]>0) and (!m_bFast9)) tx2 += icw[0]*2560.0/48000.0;  //Full length including CW ID
   if(tx2>m_TRperiod) tx2=m_TRperiod;
   if(!m_txFirst and m_mode!="WSPR" and m_mode!="FST4W") {
@@ -10741,6 +10745,7 @@ void MainWindow::on_actionFreqCal_triggered()
 
 void MainWindow::switch_mode (Mode mode)
 {
+  if (mode != Modes::JTTY) jttyLeave ();
       // Z
   tx_watchdog(false);
   if (m_mode != "Q65" && m_specOp==SpecOp::Q65_PILEUP) {
@@ -14240,6 +14245,7 @@ void MainWindow::set_mode (QString const& mode)
 {
     if ("FT4" == mode) on_actionFT4_triggered ();
     else if ("FT2" == mode) on_actionFT2_triggered ();
+    else if ("JTTY" == mode) on_actionJTTY_triggered ();
     else if ("FST4" == mode) on_actionFST4_triggered ();
     else if ("FST4W" == mode) on_actionFST4W_triggered ();
     else if ("FT8" == mode) on_actionFT8_triggered ();

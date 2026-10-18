@@ -91,11 +91,24 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
         if(m_bufferPos==m_samplesPerFFT*m_downSampleFactor) {
           qint32 framesToProcess (m_samplesPerFFT * m_downSampleFactor);
           qint32 framesAfterDownSample (m_samplesPerFFT);
+          bool const tap {m_continuousTap};
+          QByteArray tapBlock;
           if(m_downSampleFactor > 1 && dec_data.params.kin>=0 &&
              dec_data.params.kin < (NTMAX*12000 - framesAfterDownSample)) {
             fil4_(&m_buffer[0], &framesToProcess, &dec_data.d2[dec_data.params.kin],
                   &framesAfterDownSample);
+            if (tap) {
+              tapBlock = QByteArray {reinterpret_cast<char const *> (&dec_data.d2[dec_data.params.kin]),
+                                     framesAfterDownSample * static_cast<int> (sizeof (qint16))};
+            }
             dec_data.params.kin += framesAfterDownSample;
+          } else if (tap) {
+            // dec_data.d2 is full until the next period, but the
+            // continuous stream must not have a hole; fil4_ keeps its
+            // filter state across calls so filter exactly once here
+            tapBlock.resize (framesAfterDownSample * static_cast<int> (sizeof (qint16)));
+            fil4_(&m_buffer[0], &framesToProcess, reinterpret_cast<qint16 *> (tapBlock.data ()),
+                  &framesAfterDownSample);
           } else {
             // qDebug() << "framesToProcess     = " << framesToProcess;
             // qDebug() << "dec_data.params.kin = " << dec_data.params.kin;
@@ -103,6 +116,7 @@ qint64 Detector::writeData (char const * data, qint64 maxSize)
             // qDebug() << "framesAfterDownSample" << framesAfterDownSample;
           }
           Q_EMIT framesWritten (dec_data.params.kin);
+          if (tap) Q_EMIT continuousSamples (tapBlock);
           m_bufferPos = 0;
         }
 

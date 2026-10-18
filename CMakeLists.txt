@@ -317,6 +317,10 @@ set (wsjtx_CXXSRCS
   widgets/colorhighlighting.cpp
   WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
+  widgets/mainwindow_jtty.cpp
+  widgets/JttyPanel.cpp
+  JttyReceiver.cpp
+  JttyEncoder.cpp
   Configuration.cpp
   main.cpp
   Network/wsprnet.cpp
@@ -1136,6 +1140,15 @@ else ()
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=gnu++11 -pthread")
 endif ()
 
+# The JTTY sources shared with WSJT-X 3.3 (widgets/JttyMessages.hpp) need
+# C++17; the rest of WSJT-Y stays on the gnu++11 set above. A later -std
+# option wins, so this overrides it for just these files.
+set_source_files_properties (widgets/mainwindow_jtty.cpp widgets/JttyPanel.cpp
+  JttyEncoder.cpp JttyReceiver.cpp tests/jtty_loopback.cpp PROPERTIES COMPILE_OPTIONS "-std=gnu++17")
+# ui_mainwindow.h uses Qt API deprecated in 5.15, which only warns from C++14
+set_source_files_properties (widgets/mainwindow_jtty.cpp PROPERTIES COMPILE_OPTIONS
+  "-std=gnu++17;-Wno-deprecated-declarations")
+
 
 #
 # Fortran setup
@@ -1610,6 +1623,11 @@ endif (WIN32 AND WSJT_WITH_OMNIRIG)
 # build a library of package Qt functionality used in Fortran utilities
 add_library (fort_qt STATIC ${fort_qt_CXXSRCS})
 target_link_libraries (fort_qt Qt5::Core)
+
+# JTTY codec loopback check: transmit encoder -> synthetic 12 kHz audio
+# with noise -> JttyReceiver; exits non-zero unless the text decodes
+add_executable (jtty_loopback tests/jtty_loopback.cpp JttyReceiver.cpp JttyEncoder.cpp)
+target_link_libraries (jtty_loopback wsjt_fort wsjt_cxx fort_qt Qt5::Core)
 
 # build a library of WSJT Qt multimedia components
 add_library (wsjt_qtmm STATIC ${wsjt_qtmm_CXXSRCS} ${wsjt_qtmm_GENUISRCS})
