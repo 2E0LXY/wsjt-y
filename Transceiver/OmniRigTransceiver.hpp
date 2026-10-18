@@ -53,6 +53,9 @@ private:
 
   MODE map_mode (OmniRig::RigParamX param);
   OmniRig::RigParamX map_mode (MODE mode);
+  void initialize_com ();
+  void uninitialize_com ();
+  QString not_online_message (QString const& status) const;
 
   std::unique_ptr<TransceiverBase> wrapped_; // may be null
   bool use_for_ptt_;
@@ -67,6 +70,7 @@ private:
   QScopedPointer<QTimer> offline_timer_;
   bool send_update_signal_;
   bool reversed_;   // some rigs can reverse VFOs
+  bool com_initialized_;  // CoInitializeEx succeeded on the transceiver thread
 };
 
 #endif
