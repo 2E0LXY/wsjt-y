@@ -70,6 +70,7 @@ namespace
       {1838000, Modes::JT65, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // squeezed allocations
       {1839000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {1839000, Modes::FST4, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
+      {1839000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // shares JT9's dial freq (JT9 now low-traffic)
       {1840000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {1843000, Modes::FT2, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
 
@@ -108,6 +109,7 @@ namespace
       {3575000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},  // provisional
       {3578000, Modes::FT2, IARURegions::R3, "","", QDateTime(), QDateTime(), false}, // provisional
       {3568000, Modes::FT4, IARURegions::R3, "","", QDateTime(), QDateTime(), false},   // provisional
+      {3572000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // shares JT9's dial freq (JT9 now low-traffic)
 
       // Band plans (all USB dial unless stated otherwise)
       //
@@ -146,6 +148,7 @@ namespace
       {7078000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {7047500, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // provisional - moved
       {7052000, Modes::FT2, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
+      {7078000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // shares JT9's dial freq (JT9 now low-traffic)
                                                // up 500Hz to clear
                                                // W1AW code practice QRG
 
@@ -180,6 +183,7 @@ namespace
       {10138700, Modes::WSPR, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {10140000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {10140000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // provisional
+      {10140000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY frequency; band's upper edge (10150) leaves no room for a +10 kHz nudge
       {10144000, Modes::FT2, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
 
       // Band plans (all USB dial unless stated otherwise)
@@ -225,6 +229,7 @@ namespace
       {14078000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {14080000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // provisional
       {14084000, Modes::FT2, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
+      {14090000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
 
       // Band plans (all USB dial unless stated otherwise)
       //
@@ -257,12 +262,14 @@ namespace
       {18102000, Modes::JT65, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {18104000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {18104000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // provisional
+      {18104000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // shares JT9's dial freq -- off FT8's 18100 and clear of the 18110 NCDXF beacon
       {18108000, Modes::FT2, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
       {18104600, Modes::WSPR, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
 
       {21074000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {21076000, Modes::JT65, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {21078000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
+      {21090000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
       {21094600, Modes::WSPR, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {21140000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {21144000, Modes::FT2, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
@@ -271,15 +278,18 @@ namespace
       {24917000, Modes::JT65, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {24919000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {24919000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), false}, // provisional
+      {24920000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY frequency; US narrow data segment (24920-24925) leaves no room for a +10 kHz nudge
       {24923000, Modes::FT2, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
       {24924600, Modes::WSPR, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
 
       {28074000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {28076000, Modes::JT65, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {28078000, Modes::JT9, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
+      {28090000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // conventional RTTY freq + 10 kHz
       {28124600, Modes::WSPR, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {28180000, Modes::FT4, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {28184000, Modes::FT2, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
+      {50160000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
 
       {50200000, Modes::Echo, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {50211000, Modes::Q65, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
@@ -312,6 +322,7 @@ namespace
       {144174000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {144360000, Modes::MSK144, IARURegions::R1, "","", QDateTime(), QDateTime(), false},
       {144150000, Modes::MSK144, IARURegions::R2, "","", QDateTime(), QDateTime(), false},
+      {144160000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
       {144489000, Modes::WSPR, IARURegions::ALL,"","", QDateTime(), QDateTime(), false},
       
       {222065000, Modes::Echo, IARURegions::R2, "","", QDateTime(), QDateTime(), false},
