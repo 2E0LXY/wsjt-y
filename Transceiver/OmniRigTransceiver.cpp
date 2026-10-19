@@ -13,6 +13,41 @@ namespace
 {
   auto constexpr OmniRig_transceiver_one_name = "OmniRig Rig 1";
   auto constexpr OmniRig_transceiver_two_name = "OmniRig Rig 2";
+
+  // OmniRig.OmniRigX coclass and IUnknown, spelled out so we don't
+  // depend on the generated header or libuuid for the activation probe
+  CLSID const clsid_OmniRigX {0x0839e8c6, 0xed30, 0x4950, {0x80, 0x87, 0x96, 0x6f, 0x97, 0x0f, 0x0c, 0xae}};
+  IID const iid_IUnknown {0x00000000, 0x0000, 0x0000, {0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+
+  QString hresult_text (HRESULT hr)
+  {
+    QString text {QString {"0x%1"}.arg (static_cast<quint32> (hr), 8, 16, QChar {'0'})};
+    wchar_t * buffer {nullptr};
+    if (FormatMessageW (FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS
+                        , nullptr, static_cast<DWORD> (hr), 0, reinterpret_cast<LPWSTR> (&buffer), 0, nullptr)
+        && buffer)
+      {
+        text += ' ' + QString::fromWCharArray (buffer).trimmed ();
+        LocalFree (buffer);
+      }
+    return text;
+  }
+
+  // a hint for the activation failures users actually hit
+  QString hresult_hint (HRESULT hr)
+  {
+    switch (hr)
+      {
+      case REGDB_E_CLASSNOTREG:
+        return OmniRigTransceiver::tr ("OmniRig is not installed or not registered. Reinstall OmniRig.");
+      case CO_E_SERVER_EXEC_FAILURE:
+        return OmniRigTransceiver::tr ("OmniRig did not answer. It may be hung: close it (Task Manager if necessary) and retry.");
+      case E_ACCESSDENIED:
+        return OmniRigTransceiver::tr ("WSJT-Y and OmniRig must run at the same privilege level. Don't run only one of them as administrator.");
+      default:
+        return {};
+      }
+  }
 }
 
 auto OmniRigTransceiver::map_mode (OmniRig::RigParamX param) -> MODE
@@ -109,15 +144,47 @@ OmniRigTransceiver::OmniRigTransceiver (logger_type * the_logger,
   , writable_params_ {0}
   , send_update_signal_ {false}
   , reversed_ {false}
+  , com_initialized_ {false}
 {
-  CoInitializeEx (nullptr, 0 /*COINIT_APARTMENTTHREADED*/); // required because Qt only does this for GUI thread
+  // COM is initialised in do_start () because this constructor runs
+  // on the GUI thread, not the transceiver thread that uses OmniRig
   CAT_TRACE ("constructed");
 }
 
 OmniRigTransceiver::~OmniRigTransceiver ()
 {
   CAT_TRACE ("destroying");
+}
+
+void OmniRigTransceiver::initialize_com ()
+{
+  if (com_initialized_) return;
+
+  // Qt only initialises COM on the GUI thread. Without this the
+  // activation below only works if some other thread in the process
+  // happens to have joined the MTA, otherwise it fails at once with
+  // CO_E_NOTINITIALIZED. The MTA matches how OmniRig events have
+  // always been delivered here (on COM threads, queued to this one).
+  auto hr = CoInitializeEx (nullptr, COINIT_MULTITHREADED);
+  if (RPC_E_CHANGED_MODE == hr)
+    {
+      // thread is already an STA, COM is usable but not ours to release
+      CAT_WARNING ("COM already initialised as STA on transceiver thread");
+      return;
+    }
+  if (FAILED (hr))
+    {
+      CAT_ERROR ("CoInitializeEx failed: " << hresult_text (hr));
+      throw_qstring (tr ("OmniRig: COM initialisation failed: %1").arg (hresult_text (hr)));
+    }
+  com_initialized_ = true;
+}
+
+void OmniRigTransceiver::uninitialize_com ()
+{
+  if (!com_initialized_) return;
   CoUninitialize ();
+  com_initialized_ = false;
 }
 
 int OmniRigTransceiver::do_start ()
@@ -125,9 +192,27 @@ int OmniRigTransceiver::do_start ()
   CAT_TRACE ("starting");
   try
     {
+      initialize_com ();
+
       if (wrapped_) wrapped_->start (0);
 
+      // Activate the server ourselves first: ActiveQt only reports
+      // success or failure, and the HRESULT is what tells the user
+      // what to fix. Holding the reference also keeps a freshly
+      // launched OmniRig alive until the proxy below attaches.
+      IUnknown * probe {nullptr};
+      auto hr = CoCreateInstance (clsid_OmniRigX, nullptr, CLSCTX_LOCAL_SERVER, iid_IUnknown, reinterpret_cast<void **> (&probe));
+      if (FAILED (hr))
+        {
+          CAT_ERROR ("failed to start COM server: " << hresult_text (hr));
+          auto message = tr ("Failed to start OmniRig COM server: %1").arg (hresult_text (hr));
+          auto const& hint = hresult_hint (hr);
+          if (!hint.isEmpty ()) message += "\n\n" + hint;
+          throw_qstring (message);
+        }
+
       omni_rig_.reset (new OmniRig::OmniRigX {this});
+      probe->Release ();
       if (omni_rig_->isNull ())
         {
           CAT_ERROR ("failed to start COM server");
@@ -149,7 +234,7 @@ int OmniRigTransceiver::do_start ()
       CAT_INFO ("OmniRig s/w version: " << static_cast<quint16> (omni_rig_->SoftwareVersion () >> 16)
                 << '.' << static_cast<quint16> (omni_rig_->SoftwareVersion () & 0xffff)
                 << " i/f version: " << static_cast<int> (omni_rig_->InterfaceVersion () >> 8 & 0xff)
-                << '.' << static_cast<int> (omni_rig_->InterfaceVersion () && 0xff));
+                << '.' << static_cast<int> (omni_rig_->InterfaceVersion () & 0xff));
 
       // fetch the interface of the RigX CoClass and instantiate a proxy object
       switch (rig_number_)
@@ -166,22 +251,21 @@ int OmniRigTransceiver::do_start ()
 
       offline_timer_.reset (new QTimer); // instantiate here as constructor runs in wrong thread
       offline_timer_->setSingleShot (true);
-      connect (offline_timer_.data (), &QTimer::timeout, [this] () {offline ("Rig went offline");});
+      connect (offline_timer_.data (), &QTimer::timeout, [this] () {
+          offline (not_online_message (rig_ && !rig_->isNull () ? rig_->StatusStr () : tr ("Rig went offline")));
+        });
 
-      for (int i = 0; i < 5; ++i)
+      // leave time for OmniRig's first poll; a rig file with several
+      // init commands, or OmniRig just launched, can take a few seconds
+      for (int i = 0; i < 24 && OmniRig::ST_ONLINE != rig_->Status (); ++i)
         {
-          // leave some time for Omni-Rig to do its first poll
           QThread::msleep (250);
-          if (OmniRig::ST_ONLINE == rig_->Status ())
-            {
-              break;
-            }
         }
 
       if (OmniRig::ST_ONLINE != rig_->Status ())
         {
-          CAT_ERROR ("rig not online");
-          throw_qstring ("OmniRig: " + rig_->StatusStr ());
+          CAT_ERROR ("rig not online: " << rig_->StatusStr ());
+          throw_qstring (not_online_message (rig_->StatusStr ()));
         }
 
       if (use_for_ptt_ && (TransceiverFactory::PTT_method_DTR == ptt_type_ || TransceiverFactory::PTT_method_RTS == ptt_type_))
@@ -347,7 +431,27 @@ void OmniRigTransceiver::do_stop ()
   
   if (wrapped_) wrapped_->stop ();
 
+  uninitialize_com ();
+
   CAT_TRACE ("stopped");
+}
+
+QString OmniRigTransceiver::not_online_message (QString const& status) const
+{
+  auto message = tr ("OmniRig Rig %1: %2").arg (rig_number_).arg (status);
+  if (rig_ && !rig_->isNull () && OmniRig::ST_NOTRESPONDING == rig_->Status ())
+    {
+      // OmniRig never reopens a port whose USB device went away, so
+      // after a radio power cycle or cable reconnect it stays stuck here
+      message += "\n\n" + tr ("Check the radio is on and the COM port and CI-V address in OmniRig are correct. "
+                              "If the radio was switched off or its USB cable reconnected, OmniRig must reopen the port: "
+                              "open OmniRig's settings and press OK, or restart OmniRig.");
+    }
+  else if (rig_ && !rig_->isNull () && OmniRig::ST_PORTBUSY == rig_->Status ())
+    {
+      message += "\n\n" + tr ("Another program may be using the COM port, or both OmniRig rigs are set to the same port.");
+    }
+  return message;
 }
 
 void OmniRigTransceiver::handle_COM_exception (int code, QString source, QString desc, QString help)
