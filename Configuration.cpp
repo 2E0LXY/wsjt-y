@@ -542,6 +542,7 @@ private:
   void set_rig_invariants ();
   bool validate ();
   void fill_port_combo_box (QComboBox *);
+  void update_CAT_port_identity_label ();
   Frequency apply_calibration (Frequency) const;
   Frequency remove_calibration (Frequency) const;
 
@@ -2488,6 +2489,7 @@ void Configuration::impl::set_rig_invariants ()
               ui_->CAT_port_combo_box->setEnabled (false);
               break;
             }
+          update_CAT_port_identity_label ();
         }
       ui_->CAT_serial_port_parameters_group_box->setEnabled (is_serial_CAT);
       ui_->force_DTR_combo_box->setEnabled (is_serial_CAT
@@ -3158,6 +3160,7 @@ void Configuration::impl::on_PTT_port_combo_box_activated (int /* index */)
 void Configuration::impl::on_CAT_port_combo_box_activated (int /* index */)
 {
   set_rig_invariants ();
+  update_CAT_port_identity_label ();
 }
 
 void Configuration::impl::on_CAT_serial_baud_combo_box_currentIndexChanged (int /* index */)
@@ -4317,7 +4320,17 @@ void Configuration::impl::load_audio_devices (QAudio::Mode mode, QComboBox * com
       auto scc = p.supportedChannelCounts ();
       copy (scc.cbegin (), scc.cend (), back_inserter (channel_counts));
 
-      combo_box->addItem (p.deviceName (), QVariant::fromValue (audio_info_type {p, channel_counts}));
+      // Channel counts in the label; selection reads currentData(), never this text.
+      QStringList channel_labels;
+      for (auto n : scc) { channel_labels << (1 == n ? tr ("mono") : tr ("%1ch").arg (n)); }
+      auto const& label = channel_labels.isEmpty () ? p.deviceName ()
+        : QString {"%1 (%2)"}.arg (p.deviceName (), channel_labels.join (QStringLiteral (", ")));
+      combo_box->addItem (label, QVariant::fromValue (audio_info_type {p, channel_counts}));
+      QStringList rate_strs;
+      for (auto r : p.supportedSampleRates ()) { rate_strs << QString::number (r); }
+      combo_box->setItemData (combo_box->count () - 1,
+                               tr ("Sample rates: %1 Hz").arg (rate_strs.join (QStringLiteral (", "))),
+                               Qt::ToolTipRole);
       if (p == *device)
         {
           current_index = combo_box->count () - 1;
@@ -4499,8 +4512,22 @@ void Configuration::impl::fill_port_combo_box (QComboBox * cb)
         }
     }
   cb->addItem ("USB");
-  cb->setItemData (cb->count () - 1, "Custom USB device", Qt::ToolTipRole);
+  cb->setItemData (cb->count () - 1, "Only for rigs with native USB CAT (no serial port) -- NOT for"
+                    " standard USB-to-serial CAT like the IC-7300, which needs an actual"
+                    " /dev/ttyUSB.../COM.. port selected above instead", Qt::ToolTipRole);
   cb->setEditText (current_text);
+}
+
+// Shows manufacturer/serial/description of the selected CAT port under the
+// dropdown (same data fill_port_combo_box stores as tooltips). Label rather
+// than decorating item text: currentText() is the literal port path.
+void Configuration::impl::update_CAT_port_identity_label ()
+{
+  if (!ui_->CAT_port_identity_label) return;
+  auto * cb = ui_->CAT_port_combo_box;
+  auto const index = cb->findText (cb->currentText ());
+  auto const identity = index >= 0 ? cb->itemData (index, Qt::ToolTipRole).toString () : QString {};
+  ui_->CAT_port_identity_label->setText (identity);
 }
 
 auto Configuration::impl::apply_calibration (Frequency f) const -> Frequency
