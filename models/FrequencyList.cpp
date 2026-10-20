@@ -73,6 +73,17 @@ namespace
       {1840000, Modes::FT8, IARURegions::ALL, "","", QDateTime(), QDateTime(), false},
       {1843000, Modes::FT2, IARURegions::ALL, "","", QDateTime(), QDateTime(), true}, // provisional
 
+      // JTTY (WSJT-X 3.2.0-rc1 defaults; RTTY-region frequencies) -- in development
+      {1838000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+      {3575000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+      {7090000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+      {10140000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+      {14090000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+      {18100000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+      {21090000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+      {24920000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+      {28090000, Modes::JTTY, IARURegions::ALL, "","", QDateTime(), QDateTime(), true},
+
       // Band plans (all USB dial unless stated otherwise)
       //
       // R1: 3570 - 3580 DM NB(<200Hz)
