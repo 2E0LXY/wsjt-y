@@ -52,6 +52,7 @@ public:
     FST4,
     FST4W,
     Q65,
+    JTTY,                       // WSJT-X 3.2.0-rc1 port, feature/jtty (in development)
     MODES_END_SENTINAL_AND_COUNT // this must be last
   };
   Q_ENUM (Mode)
