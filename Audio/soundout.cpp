@@ -209,3 +209,8 @@ void SoundOutput::handleStateChanged (QAudio::State newState)
       break;
     }
 }
+
+int SoundOutput::bufferSize () const
+{
+  return m_stream ? m_stream->bufferSize () : 0;
+}

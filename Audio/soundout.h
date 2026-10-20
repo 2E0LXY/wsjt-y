@@ -26,6 +26,7 @@ public:
   }
 
   qreal attenuation () const;
+  int bufferSize () const;     // device buffer in bytes, 0 if no stream (used by JttyTxStream)
 
 public Q_SLOTS:
   void setFormat (QAudioDeviceInfo const& device, unsigned channels, int frames_buffered = 0);

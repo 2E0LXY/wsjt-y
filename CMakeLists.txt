@@ -287,6 +287,8 @@ set (wsjtx_CXXSRCS
   logbook/logbook.cpp
   Network/PSKReporter.cpp
   Modulator/Modulator.cpp
+  Modulator/JttyPcmFifo.cpp
+  Modulator/JttyTxStream.cpp
   Detector/Detector.cpp
   widgets/logqso.cpp
   widgets/displaytext.cpp
