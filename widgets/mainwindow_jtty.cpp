@@ -9,6 +9,9 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "widegraph.h"
+#include "fastgraph.h"
+#include "Modulator/Modulator.hpp"
+#include "Detector/Detector.hpp"
 #include "commons.h"
 
 #include <algorithm>
