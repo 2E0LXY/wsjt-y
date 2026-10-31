@@ -319,6 +319,7 @@ set (wsjtx_CXXSRCS
   widgets/colorhighlighting.cpp
   WSPR/WsprTxScheduler.cpp
   widgets/mainwindow.cpp
+  widgets/mainwindow_jtty.cpp
   Configuration.cpp
   main.cpp
   Network/wsprnet.cpp

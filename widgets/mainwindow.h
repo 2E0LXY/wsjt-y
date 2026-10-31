@@ -13,6 +13,7 @@
 #include <QProgressBar>
 #include <QTimer>
 #include <QDateTime>
+#include <QMap>
 #include <QList>
 #include "widgets/DXStationMap.h"
 #include "widgets/VersionChecker.h"
@@ -250,6 +251,7 @@ private slots:
   void on_actionJT4_triggered();
   void on_actionFT4_triggered();
   void on_actionFT2_triggered();
+  void on_actionJTTY_triggered();
   void on_actionFT8_triggered();
   void on_actionFST4_triggered();
   void on_actionFST4W_triggered();
@@ -1097,6 +1099,21 @@ private:
   void postWSPRDecode (bool is_new, QStringList message_parts);
   void enable_DXCC_entity (bool on);
   void switch_mode (Mode);
+
+  // JTTY receive-only (mainwindow_jtty.cpp, branch feature/jtty -- unreleased)
+  struct JttyLine
+  {
+    float frequency {0.f};
+    QString text;
+    QDateTime startUtc;
+    bool complete {false};
+  };
+  bool jtty_decode (int k);
+  void renderJttyLines (float f0, float ftol);
+  void jttyShutdown ();
+  QMap<qint64, JttyLine> m_jttyLines;
+  int m_jttyLastK {-1};
+  bool m_jttyTxLocked {false};
   void WSPR_scheduling ();
   void freqCalStep();
   void setRig (Frequency = 0);  // zero frequency means no change

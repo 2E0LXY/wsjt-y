@@ -1256,6 +1256,7 @@ MainWindow::MainWindow(QDir const& temp_directory, bool multiple,
   ui->actionEcho->setActionGroup(modeGroup);
   ui->actionMSK144->setActionGroup(modeGroup);
   ui->actionQ65->setActionGroup(modeGroup);
+  ui->actionJTTY->setActionGroup(modeGroup);
   ui->actionFreqCal->setActionGroup(modeGroup);
 
   QActionGroup* saveGroup = new QActionGroup(this);
@@ -2792,6 +2793,10 @@ void MainWindow::dataSink(qint64 frames)
     m_wideGraph->dataSink2(s,m_df3,m_ihsym,m_diskData,m_px);
   }
   if(m_mode=="MSK144") return;
+  if(m_mode=="JTTY") {          // continuous decoder, no T/R sequencing (mainwindow_jtty.cpp)
+    jtty_decode(k);
+    return;
+  }
 
   fixStop();
   if (m_mode == "FreqCal"
@@ -4373,6 +4378,7 @@ void MainWindow::closeEvent(QCloseEvent * e)
   to_jt9(m_ihsym,999,-1);          //Tell jt9 to terminate
   if (!proc_jt9.waitForFinished(1000)) proc_jt9.close();
   mem_jt9->detach();
+  jttyShutdown ();
   Q_EMIT finished ();
   QMainWindow::closeEvent (e);
 }
@@ -10742,6 +10748,13 @@ void MainWindow::on_actionFreqCal_triggered()
 void MainWindow::switch_mode (Mode mode)
 {
       // Z
+  if (m_jttyTxLocked && Modes::JTTY != mode) {   // leaving JTTY: reopen transmit
+    ui->autoButton->setEnabled (true);
+    ui->tuneButton->setEnabled (true);
+    m_jttyTxLocked = false;
+    m_jttyLines.clear ();
+    m_jttyLastK = -1;
+  }
   tx_watchdog(false);
   if (m_mode != "Q65" && m_specOp==SpecOp::Q65_PILEUP) {
       m_config.setSpecial_None();
@@ -14247,6 +14260,7 @@ void MainWindow::set_mode (QString const& mode)
     else if ("JT9" == mode) on_actionJT9_triggered ();
     else if ("JT65" == mode) on_actionJT65_triggered ();
     else if ("Q65" == mode) on_actionQ65_triggered ();
+    else if ("JTTY" == mode) on_actionJTTY_triggered ();
     else if ("FreqCal" == mode) on_actionFreqCal_triggered ();
     else if ("MSK144" == mode) on_actionMSK144_triggered ();
     else if ("WSPR" == mode) on_actionWSPR_triggered ();
