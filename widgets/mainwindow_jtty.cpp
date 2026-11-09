@@ -97,10 +97,16 @@ bool MainWindow::jtty_decode (int k)
   }
 
   int nsps = jttyNsps;
-  float f0 = ui->RxFreqSpinBox->value ();
-  float ftol = ui->sbFtol->value ();
+  float const rxFreq = ui->RxFreqSpinBox->value ();
+  float const qsoTol = ui->sbFtol->value ();
   int nfa = m_wideGraph->nStartFreq ();
   int nfb = m_wideGraph->Fmax ();
+  // The Fortran decoder only decodes inside f0 +/- ftol, so give it the whole
+  // displayed passband (verified end to end: no sensitivity loss versus a
+  // narrow window). Rx frequency / Ftol then only select which decodes also
+  // appear in the QSO pane.
+  float f0 = 0.5f * float (nfa + nfb);
+  float ftol = 0.5f * float (nfb - nfa);
   rjtty_sub_ (dec_data.d2, &k, &nsps, &nfa, &nfb, &f0, &ftol);
 
   bool changed = false;
@@ -136,7 +142,7 @@ bool MainWindow::jtty_decode (int k)
     }
   } while (updateCount == jttyMaxUpdates);
 
-  if (changed) renderJttyLines (f0, ftol);
+  if (changed) renderJttyLines (rxFreq, qsoTol);
   return anyEom;
 }
 
